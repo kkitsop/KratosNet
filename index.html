@@ -205,7 +205,8 @@
   .viewer-bar .vdomain::before{content:"🔒"; font-size:10px}
   .viewer-bar a.vexternal{font-size:11px; font-weight:600; color:var(--aegean); text-decoration:none;
     white-space:nowrap}
-  #viewerFrame{flex:1; width:100%; border:none; background:#fff}
+  #viewerFrame{position:absolute; inset:0; width:100%; height:100%; border:none; background:#fff}
+  .viewer-body{flex:1; position:relative; min-height:0}
   .viewer-loading{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
     color:var(--muted); font-size:12.5px; font-family:'IBM Plex Mono',monospace}
 
@@ -432,7 +433,7 @@
     <span class="vdomain" id="viewerDomain"></span>
     <a class="vexternal" id="viewerExternal" target="_blank" rel="noopener">Άνοιγμα σε browser ↗</a>
   </div>
-  <div style="position:relative; flex:1">
+  <div class="viewer-body">
     <div class="viewer-loading" id="viewerLoading">Φόρτωση…</div>
     <iframe id="viewerFrame"></iframe>
   </div>
