@@ -258,16 +258,29 @@ def scrape(max_pages: int = 29) -> list[dict]:
                   // 5. Πάρε το HTML γύρω από το "από 286" — εκεί πρέπει να είναι το pagination
                   const html = document.body.innerHTML;
                   const idx = html.search(/από\\s+286/);
-                  const contextRaw = idx >= 0 ? html.substring(Math.max(0, idx-800), Math.min(html.length, idx+200)) : '';
-                  // Καθάρισε whitespace για ευανάγνωστο log
-                  const context = contextRaw.replace(/\\s+/g, ' ').slice(0, 1200);
+                  const contextRaw = idx >= 0 ? html.substring(Math.max(0, idx-200), Math.min(html.length, idx+2000)) : '';
+                  const context = contextRaw.replace(/\\s+/g, ' ').slice(0, 2500);
+                  // 6. Ψάξε συγκεκριμένα για inputs, selects, buttons μέσα στο pagingPanel
+                  const pagingPanel = document.querySelector('[id*="pagingPanel"]');
+                  const pagingControls = pagingPanel ? Array.from(pagingPanel.querySelectorAll('input, select, button, a')).map(el => ({
+                    tag: el.tagName,
+                    type: el.getAttribute('type') || '',
+                    name: el.getAttribute('name') || '',
+                    id: el.id || '',
+                    value: (el.value !== undefined ? String(el.value) : '').slice(0, 40),
+                    onclick: (el.getAttribute('onclick') || '').slice(0, 150),
+                    onchange: (el.getAttribute('onchange') || '').slice(0, 150),
+                    text: (el.textContent || '').trim().slice(0, 40),
+                    className: (el.className || '').toString().slice(0, 60)
+                  })) : [];
                   return {
                     numeric: numeric,
                     numericCount: numeric.length,
                     loadMore: loadMore,
                     countMatches: countMatches.slice(0, 5),
                     pagerHints: pagerHtml.slice(0, 5),
-                    contextAroundCount: context
+                    contextAroundCount: context,
+                    pagingControls: pagingControls
                   };
                 }"""
             )
@@ -281,6 +294,9 @@ def scrape(max_pages: int = 29) -> list[dict]:
             print(f"[debug] Pager hints in HTML: {debug_info['pagerHints']}", file=sys.stderr)
             print(f"[debug] HTML around 'από 286':", file=sys.stderr)
             print(f"  {debug_info['contextAroundCount']}", file=sys.stderr)
+            print(f"[debug] Controls μέσα στο pagingPanel: {len(debug_info['pagingControls'])}", file=sys.stderr)
+            for c in debug_info['pagingControls']:
+                print(f"  <{c['tag']} type={c['type']!r}> name={c['name']!r} id={c['id']!r} value={c['value']!r} onchange={c['onchange']!r} onclick={c['onclick']!r} text={c['text']!r} class={c['className']!r}", file=sys.stderr)
         except Exception as e:
             print(f"[debug] error: {e}", file=sys.stderr)
 
