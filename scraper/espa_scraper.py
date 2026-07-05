@@ -202,28 +202,61 @@ def scrape(max_pages: int = 29) -> list[dict]:
         except Exception as e:
             print(f"[warn] Δεν κατέστη δυνατή η αλλαγή σε 100/σελίδα ({e}) — συνεχίζω με default", file=sys.stderr)
 
-        # === DEBUG ===: εκτύπωσε ΟΛΑ τα links με αριθμητικό κείμενο ή "επόμενη"/"next"
-        # για να δούμε την πραγματική δομή pagination. Θα αφαιρεθεί μόλις φτιαχτεί.
+        # === DEBUG ===: εκτεταμένη διερεύνηση δομής pagination
         try:
-            debug_links = page.evaluate(
+            debug_info = page.evaluate(
                 """() => {
-                  const all = Array.from(document.querySelectorAll('a'));
-                  const interesting = all.filter(a => {
-                    const t = a.textContent.trim();
-                    return /^\\d{1,3}$/.test(t) || /επόμ|next|>>|»/i.test(t) || t === '...';
-                  });
-                  return interesting.slice(0, 30).map(a => ({
-                    text: a.textContent.trim(),
-                    href: (a.getAttribute('href') || '').slice(0, 80),
-                    onclick: (a.getAttribute('onclick') || '').slice(0, 80),
-                    id: a.id || '',
-                    className: (a.className || '').slice(0, 60)
-                  }));
+                  // 1. Πάρε όλα τα stoixeia με αριθμητικό κείμενο (a, button, span, div, li)
+                  const numeric = Array.from(document.querySelectorAll('a, button, span, li, div'))
+                    .filter(el => {
+                      const t = (el.textContent || '').trim();
+                      // πάρε μόνο "καθαρά" numeric elements (όχι αυτά που περιέχουν παιδιά)
+                      return /^\\d{1,3}$/.test(t) && el.children.length === 0;
+                    })
+                    .slice(0, 40)
+                    .map(el => ({
+                      tag: el.tagName,
+                      text: el.textContent.trim(),
+                      onclick: (el.getAttribute('onclick') || '').slice(0, 100),
+                      href: (el.getAttribute('href') || '').slice(0, 100),
+                      id: el.id || '',
+                      className: (el.className || '').toString().slice(0, 80),
+                      parentTag: el.parentElement ? el.parentElement.tagName : '',
+                      parentClass: el.parentElement ? (el.parentElement.className || '').toString().slice(0, 60) : ''
+                    }));
+                  // 2. Ψάξε για "Φόρτωση", "Load more", "Επόμενη", "Next" σε οποιοδήποτε element
+                  const loadMore = Array.from(document.querySelectorAll('a, button, div'))
+                    .filter(el => /φόρτω|load|επόμ|next|περισσ|more|»/i.test(el.textContent || ''))
+                    .slice(0, 10)
+                    .map(el => ({
+                      tag: el.tagName,
+                      text: (el.textContent || '').trim().slice(0, 60),
+                      onclick: (el.getAttribute('onclick') || '').slice(0, 100),
+                      id: el.id || '',
+                      className: (el.className || '').toString().slice(0, 80)
+                    }));
+                  // 3. Πληροφορίες που δείχνουν συνολικό πλήθος
+                  const bodyText = document.body.textContent || '';
+                  const countMatches = bodyText.match(/από\\s+\\d+|of\\s+\\d+|σύνολο[^\\n]{0,30}\\d+/gi) || [];
+                  // 4. Ελεγχος για SharePoint pager container
+                  const pagerHtml = document.body.innerHTML.match(/pager[^"]{0,80}/gi) || [];
+                  return {
+                    numeric: numeric,
+                    numericCount: numeric.length,
+                    loadMore: loadMore,
+                    countMatches: countMatches.slice(0, 5),
+                    pagerHints: pagerHtml.slice(0, 5)
+                  };
                 }"""
             )
-            print(f"[debug] Βρέθηκαν {len(debug_links)} πιθανά pagination links:", file=sys.stderr)
-            for link in debug_links:
-                print(f"  text={link['text']!r} href={link['href']!r} onclick={link['onclick']!r} id={link['id']!r} class={link['className']!r}", file=sys.stderr)
+            print(f"[debug] Numeric elements found: {debug_info['numericCount']}", file=sys.stderr)
+            for item in debug_info['numeric'][:20]:
+                print(f"  <{item['tag']}> text={item['text']!r} onclick={item['onclick']!r} href={item['href']!r} id={item['id']!r} class={item['className']!r} parent=<{item['parentTag']} class={item['parentClass']!r}>", file=sys.stderr)
+            print(f"[debug] Load-more/next candidates: {len(debug_info['loadMore'])}", file=sys.stderr)
+            for item in debug_info['loadMore']:
+                print(f"  <{item['tag']}> text={item['text']!r} onclick={item['onclick']!r} id={item['id']!r} class={item['className']!r}", file=sys.stderr)
+            print(f"[debug] Count text matches: {debug_info['countMatches']}", file=sys.stderr)
+            print(f"[debug] Pager hints in HTML: {debug_info['pagerHints']}", file=sys.stderr)
         except Exception as e:
             print(f"[debug] error: {e}", file=sys.stderr)
 
