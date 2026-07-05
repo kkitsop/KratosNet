@@ -1,120 +1,180 @@
 {
-  "generated_at": "2026-07-01T00:00:00Z",
-  "note": "Seed δεδομένα από πραγματική άντληση espa.gr στις 1/7/2026. Θα αντικατασταθούν αυτόματα από το nightly scraper (GitHub Actions) μόλις ρυθμιστεί.",
-  "count": 10,
+  "generated_at": "2026-07-05T16:16:32.227303+00:00",
+  "count": 11,
   "programs": [
     {
-      "id": "7273",
-      "title": "Προδημοσίευση της Δράσης «Ενίσχυση ΜΜΕ σε τομείς Στρατηγικών Τεχνολογιών για την Ευρώπη (STEP) και Άμυνας & Ασφάλειας (Defence)» (Ορθή Επανάληψη)",
-      "status": "Αναμένεται",
-      "operational_programme": "Ανταγωνιστικότητα",
-      "region": "Όλη η Ελλάδα",
-      "submission_start": null,
-      "submission_end": null,
-      "budget": null,
-      "beneficiaries": "ΜΜΕ σε τεχνολογίες STEP/Defence",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7273",
-      "kad_tags": ["62"],
-      "source": "espa.gr"
+      "id": "7298",
+      "title": "Προώθηση και υποστήριξη παιδιών για την ένταξή τους στην προσχολική εκπαίδευση και για τη πρόσβαση παιδιών σχολικής ηλικίας, εφήβων και ατόμων με αναπηρία, σε υπηρεσίες δημιουργικής απασχόλησης στα Ιόνια Νησιά (2026-2027)",
+      "status": "Ενεργό",
+      "operational_programme": "Ιόνια Νησιά",
+      "region": "Περιφέρεια Ιονίων Νήσων",
+      "submission_start": "2026-06-26",
+      "submission_end": "2026-08-28",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7298",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.174790+00:00"
     },
     {
-      "id": "7270",
-      "title": "Ανάπλαση κοινοχρήστων χώρων στην περιοχή ΒΑΑ Τρίπολης",
+      "id": "7297",
+      "title": "Αξιοποίηση πολιτιστικών πόρων (υποδομές πολιτιστικής κληρονομιάς & σύγχρονου πολιτισμού – νέες πράξεις)",
+      "status": "Ενεργό",
+      "operational_programme": "Ιόνια Νησιά",
+      "region": "Περιφέρεια Ιονίων Νήσων",
+      "submission_start": "2026-07-01",
+      "submission_end": "2026-09-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7297",
+      "kad_tags": [
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.174863+00:00"
+    },
+    {
+      "id": "7296",
+      "title": "Ενίσχυση της ελκυστικότητας και ανθεκτικότητας των τουριστικών προορισμών της Βόρειας Πίνδου, της Νότιας Πίνδου και της περιοχής Σουλίου - Αχέροντα",
       "status": "Αναμένεται",
+      "operational_programme": "Ήπειρος",
+      "region": "Περιφέρεια Ηπείρου",
+      "submission_start": "2026-07-07",
+      "submission_end": "2026-12-15",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7296",
+      "kad_tags": [
+        "55",
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.174933+00:00"
+    },
+    {
+      "id": "7295",
+      "title": "Βασικές υποστηρικτικές υποδομές ανάπτυξης τουρισμού Βόρειας Πίνδου, Νότιας Πίνδου και περιοχής Σουλίου – Αχέροντα",
+      "status": "Αναμένεται",
+      "operational_programme": "Ήπειρος",
+      "region": "Περιφέρεια Ηπείρου",
+      "submission_start": "2026-07-07",
+      "submission_end": "2026-12-15",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7295",
+      "kad_tags": [
+        "55",
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.174995+00:00"
+    },
+    {
+      "id": "7294",
+      "title": "Ανάπτυξη, ανάδειξη υποδομών στην περιοχή παρέμβασης της ΟΧΕ Ναυπλιέων, Επιδαύρου και Ερμιονίδας",
+      "status": "Ενεργό",
       "operational_programme": "Πελοπόννησος",
       "region": "Περιφέρεια Πελοποννήσου",
-      "submission_start": "2026-06-22",
+      "submission_start": "2026-07-02",
       "submission_end": "2026-09-04",
-      "budget": null,
-      "beneficiaries": "Δήμος Τρίπολης",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7270",
-      "kad_tags": [],
-      "source": "espa.gr"
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7294",
+      "kad_tags": [
+        "62"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175039+00:00"
     },
     {
-      "id": "7269",
-      "title": "Ενίσχυση ερευνητικών υποδομών σε τομείς προτεραιότητας της Περιφέρειας Νοτίου Αιγαίου",
+      "id": "7293",
+      "title": "Προώθηση και υποστήριξη παιδιών για την ένταξή τους στην προσχολική εκπαίδευση και για την πρόσβαση παιδιών σχολικής ηλικίας, εφήβων και ατόμων με αναπηρία, σε υπηρεσίες δημιουργικής απασχόλησης στη Δυτική Μακεδονία (2026-2027)",
       "status": "Ενεργό",
-      "operational_programme": "Νότιο Αιγαίο",
-      "region": "Περιφέρεια Νοτίου Αιγαίου",
-      "submission_start": "2026-06-15",
-      "submission_end": "2026-09-15",
-      "budget": null,
-      "beneficiaries": "Ερευνητικοί φορείς",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7269",
-      "kad_tags": [],
-      "source": "espa.gr"
-    },
-    {
-      "id": "7266",
-      "title": "Τουριστική προβολή του πολιτιστικού και φυσικού περιβάλλοντος της Περιφέρειας Κρήτης",
-      "status": "Ενεργό",
-      "operational_programme": "Κρήτη",
-      "region": "Περιφέρεια Κρήτης",
-      "submission_start": "2026-06-08",
-      "submission_end": "2026-10-30",
-      "budget": "2.000.000 €",
-      "beneficiaries": "Περιφέρεια Κρήτης, Περιφερειακό Ταμείο Ανάπτυξης Κρήτης",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7266",
-      "kad_tags": ["55"],
-      "source": "espa.gr"
-    },
-    {
-      "id": "7265",
-      "title": "Αναβάθμιση, συμπλήρωση των κοινωνικών υποδομών της Περιφέρειας Κρήτης (2η πρόσκληση)",
-      "status": "Ενεργό",
-      "operational_programme": "Κρήτη",
-      "region": "Περιφέρεια Κρήτης",
-      "submission_start": "2026-06-08",
-      "submission_end": "2026-08-31",
-      "budget": null,
-      "beneficiaries": "Φορείς κοινωνικής φροντίδας",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7265",
-      "kad_tags": [],
-      "source": "espa.gr"
-    },
-    {
-      "id": "7264",
-      "title": "Πρόγραμμα αποκατάστασης ζημιών σε υποδομές ύδρευσης στις πληγείσες από έντονα καιρικά φαινόμενα περιοχές της Περιφέρειας Θεσσαλίας",
-      "status": "Ενεργό",
-      "operational_programme": "Περιβάλλον και Κλιματική Αλλαγή",
-      "region": "Περιφέρεια Θεσσαλίας (με περιορισμό)",
-      "submission_start": "2026-06-11",
-      "submission_end": "2026-09-30",
-      "budget": null,
-      "beneficiaries": "Φορείς ύδρευσης Θεσσαλίας",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7264",
-      "kad_tags": [],
-      "source": "espa.gr"
-    },
-    {
-      "id": "7263",
-      "title": "Πρόγραμμα προεργασίας για ανέργους νέους 18-30 ετών στις περιοχές ΠΔΑΜ (προς ΔΥΠΑ)",
-      "status": "Αναμένεται",
-      "operational_programme": "Δίκαιη Αναπτυξιακή Μετάβαση",
-      "region": "Δυτ. Μακεδονία, Μεγαλόπολη, Β. Αιγαίο, Ν. Αιγαίο, Κρήτη",
+      "operational_programme": "Δυτική Μακεδονία",
+      "region": "Περιφέρεια Δυτικής Μακεδονίας",
       "submission_start": "2026-06-30",
-      "submission_end": "2026-08-14",
-      "budget": null,
-      "beneficiaries": "ΔΥΠΑ / άνεργοι 18-30",
-      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7263",
-      "kad_tags": [],
-      "source": "espa.gr"
+      "submission_end": "2026-08-08",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7293",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175097+00:00"
     },
     {
-      "id": "duti-ellada-2025",
-      "title": "Εκσυγχρονισμός Μικρής Επιχειρηματικότητας Δυτικής Ελλάδας 2025 (ΠΕΠ Δυτικής Ελλάδας)",
+      "id": "7292",
+      "title": "Ανάπτυξη και εφαρμογή μεθοδολογίας για την επαλήθευση και καταμέτρηση της προωστήριας ισχύος των αλιευτικών σκαφών",
       "status": "Ενεργό",
-      "operational_programme": "Δυτική Ελλάδα",
-      "region": "Αχαΐα, Αιτωλοακαρνανία, Ηλεία",
-      "submission_start": "2026-02-10",
-      "submission_end": "2026-04-07",
-      "budget": "23.000.000 € (συνολικά, 3 υποδράσεις)",
-      "beneficiaries": "Ατομικές επιχειρήσεις επιστημόνων (5-10k€), Μικρές επενδύσεις (5-40k€), Μεσαίες επενδύσεις (40-120k€)",
-      "url": "https://www.espa.gr/el/Pages/Proclamations.aspx",
-      "kad_tags": ["56", "47", "62"],
-      "source": "espa.gr / δευτερογενής πηγή (nconsulting.gr) — ΕΠΙΒΕΒΑΙΩΣΕ ημερομηνία λήξης, ενδέχεται να έχει ήδη κλείσει ή να υπάρχει νέος κύκλος",
-      "note_for_konstantinos": "Ο κύκλος 10/2-7/4/2026 έχει πιθανώς ήδη λήξει — έλεγξε στο espa.gr/Proclamations.aspx για νέο κύκλο ή παράταση για Αιτωλοακαρνανία"
+      "operational_programme": "Αλιεία, Υδατοκαλλιέργεια και Θάλασσα​",
+      "region": "Όλη η Ελλάδα",
+      "submission_start": "2026-06-25",
+      "submission_end": "2026-07-27",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7292",
+      "kad_tags": [
+        "62",
+        "01"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175146+00:00"
+    },
+    {
+      "id": "7291",
+      "title": "Εφαρμογή λύσεων διαχείρισης χωροκατακτητικών ξενικών ειδών (ΧΞΕ)",
+      "status": "Ενεργό",
+      "operational_programme": "Αλιεία, Υδατοκαλλιέργεια και Θάλασσα​",
+      "region": "Όλη η Ελλάδα",
+      "submission_start": "2026-06-30",
+      "submission_end": "2026-09-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7291",
+      "kad_tags": [
+        "62",
+        "01"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175214+00:00"
+    },
+    {
+      "id": "7290",
+      "title": "Προώθηση και υποστήριξη παιδιών για την ένταξή τους στην προσχολική εκπαίδευση καθώς και για την πρόσβαση παιδιών σχολικής ηλικίας, εφήβων και ατόμων με αναπηρία, σε υπηρεσίες δημιουργικής απασχόλησης στην Πελοπόννησο (2026-2027)",
+      "status": "Ενεργό",
+      "operational_programme": "Πελοπόννησος",
+      "region": "Περιφέρεια Πελοποννήσου",
+      "submission_start": "2026-07-01",
+      "submission_end": "2026-08-31",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7290",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175269+00:00"
+    },
+    {
+      "id": "7289",
+      "title": "Προστασία ακτών της Περιφέρειας Πελοποννήσου από την διάβρωση (Προγραμματισμός ΠΠ 2021-2027)",
+      "status": "Ενεργό",
+      "operational_programme": "Πελοπόννησος",
+      "region": "Περιφέρεια Πελοποννήσου",
+      "submission_start": "2026-06-29",
+      "submission_end": "2026-10-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7289",
+      "kad_tags": [
+        "62",
+        "71"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175316+00:00"
+    },
+    {
+      "id": null,
+      "title": "Περιοχή μελών",
+      "status": "Ενεργό",
+      "operational_programme": "",
+      "region": "",
+      "submission_start": null,
+      "submission_end": null,
+      "url": null,
+      "kad_tags": [],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-05T16:16:32.175350+00:00"
     }
   ]
 }
