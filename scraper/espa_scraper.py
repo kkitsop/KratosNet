@@ -115,54 +115,36 @@ def extract_items_from_page(page) -> list[dict]:
     )
 
 
-def find_next_page_href(page, next_num: int) -> str | None:
-    """Επιστρέφει το href (javascript: postback string) του link για τη
-    σελίδα `next_num`.
-
-    Στρατηγική εντοπισμού (βασισμένη στην πραγματική δομή της σελίδας που
-    επιβεβαιώθηκε στις 5/7/2026): η σελίδα δείχνει τη σειρά "1 2 3 ... 29"
-    ως αριθμητικά links πριν το footer text "από 29". Ψάχνουμε **όλα** τα
-    links στη σελίδα των οποίων το κείμενο είναι ακριβώς ο αριθμός που
-    θέλουμε (π.χ. "2") ΚΑΙ έχουν href με __doPostBack (SharePoint pager
-    convention). Έτσι δεν πιάνουμε άσχετους αριθμούς (ημερομηνίες, ποσά),
-    γιατί εκείνα είναι σε άλλα elements ή δεν είναι κλικαρίσιμα.
-    """
-    return page.evaluate(
-        """
-        (n) => {
-          const target = String(n);
-          const candidates = Array.from(document.querySelectorAll('a')).filter(a => {
-            const txt = a.textContent.trim();
-            const href = a.getAttribute('href') || '';
-            return txt === target && href.includes('__doPostBack');
-          });
-          if (candidates.length === 0) return null;
-          // Προτίμα το πρώτο (τυπικά υπάρχει pager πάνω+κάτω αλλά και τα δύο δείχνουν στο ίδιο σημείο)
-          return candidates[0].getAttribute('href');
-        }
-        """,
-        next_num,
-    )
-
-
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Πηγαίνει στην επόμενη σελίδα εκτελώντας απευθείας το __doPostBack
-    JavaScript. Οι SharePoint postback URLs περιέχουν ειδικούς χαρακτήρες
-    (κόμματα, εισαγωγικά) που κάνουν αναξιόπιστο το CSS selector click,
-    οπότε παρακάμπτουμε αυτό το πρόβλημα καλώντας απευθείας το JS."""
+    """Αλλάζει σελίδα μέσω του SharePoint DropDownList (επιβεβαιωμένο από
+    το πραγματικό DOM: το site έχει <select id="...DropDownListPagesTop">
+    με options 1..N). Το Playwright.select_option() ενεργοποιεί σωστά το
+    ASP.NET postback (change event → __doPostBack)."""
     next_num = current_page_num + 1
-    href = find_next_page_href(page, next_num)
-    if not href:
-        return False
-    # Το href είναι της μορφής "javascript:__doPostBack('...','')"
-    js_code = href[len("javascript:"):] if href.startswith("javascript:") else href
+    select_selector = "select[id$='DropDownListPagesTop']"
     try:
-        page.evaluate(js_code)
+        # Έλεγξε ότι υπάρχει option για την επόμενη σελίδα
+        has_option = page.evaluate(
+            f"""() => {{
+              const sel = document.querySelector("{select_selector}");
+              if (!sel) return false;
+              return Array.from(sel.options).some(o => o.value === '{next_num}');
+            }}"""
+        )
+        if not has_option:
+            return False
+        page.select_option(select_selector, value=str(next_num))
+        page.wait_for_load_state("networkidle", timeout=20000)
+        return True
     except Exception as e:
-        print(f"[warn] postback εκτέλεση απέτυχε: {e}", file=sys.stderr)
+        print(f"[warn] Αλλαγή σελίδας απέτυχε: {e}", file=sys.stderr)
         return False
-    page.wait_for_load_state("networkidle", timeout=15000)
-    return True
+
+
+def find_next_page_href(page, next_num: int) -> str | None:
+    """Legacy — δεν χρησιμοποιείται πλέον, κρατιέται ώστε να μη σπάσουν
+    imports σε παλιότερο κώδικα."""
+    return None
 
 
 def scrape(max_pages: int = 29) -> list[dict]:
@@ -186,120 +168,15 @@ def scrape(max_pages: int = 29) -> list[dict]:
                 "() => /από\\s+\\d+/.test(document.body.textContent || '')",
                 timeout=15000
             )
-            print("[ok] Pagination footer φορτώθηκε", file=sys.stderr)
         except Exception:
-            print("[warn] Δεν εμφανίστηκε 'από N' — συνεχίζουμε πάντως", file=sys.stderr)
+            print("[warn] Δεν εμφανίστηκε δείκτης 'από N' — συνεχίζουμε πάντως", file=sys.stderr)
 
-        # Scroll στο τέλος για να ενεργοποιηθεί κάθε lazy-loading pagination
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(2000)
-
-        # Προσπάθεια για "100 αποτελέσματα ανά σελίδα" ώστε να χρειαστούν
-        # μόνο 3 σελίδες αντί για 29. Το κάνουμε με το ίδιο pattern του
-        # postback (όχι CSS click) γιατί οι SharePoint dropdowns έχουν
-        # πολύπλοκη δομή.
+        # Περιμένουμε επίσης το DropDownListPagesTop να είναι στο DOM
         try:
-            hundred_href = page.evaluate(
-                """() => {
-                  const link = Array.from(document.querySelectorAll('a')).find(a =>
-                    a.textContent.trim() === '100' &&
-                    (a.getAttribute('href') || '').includes('__doPostBack'));
-                  return link ? link.getAttribute('href') : null;
-                }"""
-            )
-            if hundred_href:
-                js_code = hundred_href[len("javascript:"):] if hundred_href.startswith("javascript:") else hundred_href
-                page.evaluate(js_code)
-                page.wait_for_load_state("networkidle", timeout=15000)
-                print("[ok] Επιλέχθηκαν 100 αποτελέσματα/σελίδα", file=sys.stderr)
-            else:
-                print("[warn] Δεν βρέθηκε επιλογή '100 ανά σελίδα' — συνεχίζω με default", file=sys.stderr)
-        except Exception as e:
-            print(f"[warn] Δεν κατέστη δυνατή η αλλαγή σε 100/σελίδα ({e}) — συνεχίζω με default", file=sys.stderr)
-
-        # === DEBUG ===: εκτεταμένη διερεύνηση δομής pagination
-        try:
-            debug_info = page.evaluate(
-                """() => {
-                  // 1. Πάρε όλα τα stoixeia με αριθμητικό κείμενο (a, button, span, div, li)
-                  const numeric = Array.from(document.querySelectorAll('a, button, span, li, div'))
-                    .filter(el => {
-                      const t = (el.textContent || '').trim();
-                      // πάρε μόνο "καθαρά" numeric elements (όχι αυτά που περιέχουν παιδιά)
-                      return /^\\d{1,3}$/.test(t) && el.children.length === 0;
-                    })
-                    .slice(0, 40)
-                    .map(el => ({
-                      tag: el.tagName,
-                      text: el.textContent.trim(),
-                      onclick: (el.getAttribute('onclick') || '').slice(0, 100),
-                      href: (el.getAttribute('href') || '').slice(0, 100),
-                      id: el.id || '',
-                      className: (el.className || '').toString().slice(0, 80),
-                      parentTag: el.parentElement ? el.parentElement.tagName : '',
-                      parentClass: el.parentElement ? (el.parentElement.className || '').toString().slice(0, 60) : ''
-                    }));
-                  // 2. Ψάξε για "Φόρτωση", "Load more", "Επόμενη", "Next" σε οποιοδήποτε element
-                  const loadMore = Array.from(document.querySelectorAll('a, button, div'))
-                    .filter(el => /φόρτω|load|επόμ|next|περισσ|more|»/i.test(el.textContent || ''))
-                    .slice(0, 10)
-                    .map(el => ({
-                      tag: el.tagName,
-                      text: (el.textContent || '').trim().slice(0, 60),
-                      onclick: (el.getAttribute('onclick') || '').slice(0, 100),
-                      id: el.id || '',
-                      className: (el.className || '').toString().slice(0, 80)
-                    }));
-                  // 3. Πληροφορίες που δείχνουν συνολικό πλήθος
-                  const bodyText = document.body.textContent || '';
-                  const countMatches = bodyText.match(/από\\s+\\d+|of\\s+\\d+|σύνολο[^\\n]{0,30}\\d+/gi) || [];
-                  // 4. Ελεγχος για SharePoint pager container
-                  const pagerHtml = document.body.innerHTML.match(/pager[^"]{0,80}/gi) || [];
-                  // 5. Πάρε το HTML γύρω από το "από 286" — εκεί πρέπει να είναι το pagination
-                  const html = document.body.innerHTML;
-                  const idx = html.search(/από\\s+286/);
-                  const contextRaw = idx >= 0 ? html.substring(Math.max(0, idx-200), Math.min(html.length, idx+2000)) : '';
-                  const context = contextRaw.replace(/\\s+/g, ' ').slice(0, 2500);
-                  // 6. Ψάξε συγκεκριμένα για inputs, selects, buttons μέσα στο pagingPanel
-                  const pagingPanel = document.querySelector('[id*="pagingPanel"]');
-                  const pagingControls = pagingPanel ? Array.from(pagingPanel.querySelectorAll('input, select, button, a')).map(el => ({
-                    tag: el.tagName,
-                    type: el.getAttribute('type') || '',
-                    name: el.getAttribute('name') || '',
-                    id: el.id || '',
-                    value: (el.value !== undefined ? String(el.value) : '').slice(0, 40),
-                    onclick: (el.getAttribute('onclick') || '').slice(0, 150),
-                    onchange: (el.getAttribute('onchange') || '').slice(0, 150),
-                    text: (el.textContent || '').trim().slice(0, 40),
-                    className: (el.className || '').toString().slice(0, 60)
-                  })) : [];
-                  return {
-                    numeric: numeric,
-                    numericCount: numeric.length,
-                    loadMore: loadMore,
-                    countMatches: countMatches.slice(0, 5),
-                    pagerHints: pagerHtml.slice(0, 5),
-                    contextAroundCount: context,
-                    pagingControls: pagingControls
-                  };
-                }"""
-            )
-            print(f"[debug] Numeric elements found: {debug_info['numericCount']}", file=sys.stderr)
-            for item in debug_info['numeric'][:20]:
-                print(f"  <{item['tag']}> text={item['text']!r} onclick={item['onclick']!r} href={item['href']!r} id={item['id']!r} class={item['className']!r} parent=<{item['parentTag']} class={item['parentClass']!r}>", file=sys.stderr)
-            print(f"[debug] Load-more/next candidates: {len(debug_info['loadMore'])}", file=sys.stderr)
-            for item in debug_info['loadMore']:
-                print(f"  <{item['tag']}> text={item['text']!r} onclick={item['onclick']!r} id={item['id']!r} class={item['className']!r}", file=sys.stderr)
-            print(f"[debug] Count text matches: {debug_info['countMatches']}", file=sys.stderr)
-            print(f"[debug] Pager hints in HTML: {debug_info['pagerHints']}", file=sys.stderr)
-            print(f"[debug] HTML around 'από 286':", file=sys.stderr)
-            print(f"  {debug_info['contextAroundCount']}", file=sys.stderr)
-            print(f"[debug] Controls μέσα στο pagingPanel: {len(debug_info['pagingControls'])}", file=sys.stderr)
-            for c in debug_info['pagingControls']:
-                print(f"  <{c['tag']} type={c['type']!r}> name={c['name']!r} id={c['id']!r} value={c['value']!r} onchange={c['onchange']!r} onclick={c['onclick']!r} text={c['text']!r} class={c['className']!r}", file=sys.stderr)
-        except Exception as e:
-            print(f"[debug] error: {e}", file=sys.stderr)
-
+            page.wait_for_selector("select[id$='DropDownListPagesTop']", timeout=10000)
+            print("[ok] Pagination dropdown έτοιμο", file=sys.stderr)
+        except Exception:
+            print("[warn] Δεν βρέθηκε pagination dropdown — μόνο σελίδα 1 θα σαρωθεί", file=sys.stderr)
         page_num = 1
         while page_num <= max_pages:
             items = extract_items_from_page(page)
