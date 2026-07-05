@@ -117,29 +117,28 @@ def extract_items_from_page(page) -> list[dict]:
 
 def find_next_page_href(page, next_num: int) -> str | None:
     """Επιστρέφει το href (javascript: postback string) του link για τη
-    σελίδα `next_num`, ψάχνοντας ΜΟΝΟ μέσα στην περιοχή που ακολουθεί τη
-    λέξη 'Σελίδα' (pager container), όχι σε ολόκληρο το document — αλλιώς
-    ρισκάρουμε να κάνουμε κλικ σε άσχετο αριθμητικό link (π.χ. footer,
-    ημερομηνία, ποσό)."""
+    σελίδα `next_num`.
+
+    Στρατηγική εντοπισμού (βασισμένη στην πραγματική δομή της σελίδας που
+    επιβεβαιώθηκε στις 5/7/2026): η σελίδα δείχνει τη σειρά "1 2 3 ... 29"
+    ως αριθμητικά links πριν το footer text "από 29". Ψάχνουμε **όλα** τα
+    links στη σελίδα των οποίων το κείμενο είναι ακριβώς ο αριθμός που
+    θέλουμε (π.χ. "2") ΚΑΙ έχουν href με __doPostBack (SharePoint pager
+    convention). Έτσι δεν πιάνουμε άσχετους αριθμούς (ημερομηνίες, ποσά),
+    γιατί εκείνα είναι σε άλλα elements ή δεν είναι κλικαρίσιμα.
+    """
     return page.evaluate(
         """
         (n) => {
-          const all = Array.from(document.querySelectorAll('body *'));
-          const pagerAnchor = all.find(el => el.textContent.trim() === 'Σελίδα' ||
-                                              (el.children.length === 0 && el.textContent.includes('Σελίδα')));
-          if (!pagerAnchor) return null;
-          // Ψάξε προς τα εμπρός στο DOM, μέσα σε ένα εύλογο "παράθυρο" 200
-          // επόμενων στοιχείων, για link με ακριβές κείμενο == n.
-          let node = pagerAnchor;
-          for (let i = 0; i < 200 && node; i++) {
-            node = node.nextElementSibling || (node.parentElement ? node.parentElement.nextElementSibling : null);
-            if (!node) break;
-            const links = node.querySelectorAll ? node.querySelectorAll('a') : [];
-            for (const a of links) {
-              if (a.textContent.trim() === String(n)) return a.getAttribute('href');
-            }
-          }
-          return null;
+          const target = String(n);
+          const candidates = Array.from(document.querySelectorAll('a')).filter(a => {
+            const txt = a.textContent.trim();
+            const href = a.getAttribute('href') || '';
+            return txt === target && href.includes('__doPostBack');
+          });
+          if (candidates.length === 0) return null;
+          // Προτίμα το πρώτο (τυπικά υπάρχει pager πάνω+κάτω αλλά και τα δύο δείχνουν στο ίδιο σημείο)
+          return candidates[0].getAttribute('href');
         }
         """,
         next_num,
@@ -147,27 +146,21 @@ def find_next_page_href(page, next_num: int) -> str | None:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Κάνει κλικ στον σύνδεσμο της επόμενης σελίδας (current_page_num + 1),
-    αν υπάρχει μέσα στην περιοχή pagination. Επιστρέφει False όταν φτάσαμε
-    στην τελευταία σελίδα ή δεν εντοπίστηκε με ασφάλεια το σωστό link.
-
-    Σημείωση σχεδίασης: δεν υπήρχε δυνατότητα να επιβεβαιωθεί το ακριβές
-    raw HTML/CSS του pager container εκ των προτέρων (μόνο extracted-markdown
-    προεπισκόπηση ήταν διαθέσιμη κατά την ανάπτυξη) — αν αυτή η ευρετική
-    μέθοδος αστοχήσει σε πραγματικό run, ελέγξτε τα logs του πρώτου
-    GitHub Actions run και προσαρμόστε το `find_next_page_href` ανάλογα."""
+    """Πηγαίνει στην επόμενη σελίδα εκτελώντας απευθείας το __doPostBack
+    JavaScript. Οι SharePoint postback URLs περιέχουν ειδικούς χαρακτήρες
+    (κόμματα, εισαγωγικά) που κάνουν αναξιόπιστο το CSS selector click,
+    οπότε παρακάμπτουμε αυτό το πρόβλημα καλώντας απευθείας το JS."""
     next_num = current_page_num + 1
     href = find_next_page_href(page, next_num)
     if not href:
         return False
+    # Το href είναι της μορφής "javascript:__doPostBack('...','')"
+    js_code = href[len("javascript:"):] if href.startswith("javascript:") else href
     try:
-        page.click(f"a[href=\"{href}\"]", timeout=5000)
-    except Exception:
-        # fallback: εκτέλεσε απευθείας το postback JS αν είναι της μορφής javascript:...
-        if href.startswith("javascript:"):
-            page.evaluate(href.replace("javascript:", ""))
-        else:
-            return False
+        page.evaluate(js_code)
+    except Exception as e:
+        print(f"[warn] postback εκτέλεση απέτυχε: {e}", file=sys.stderr)
+        return False
     page.wait_for_load_state("networkidle", timeout=15000)
     return True
 
@@ -186,14 +179,28 @@ def scrape(max_pages: int = 29) -> list[dict]:
         page = browser.new_page(user_agent=USER_AGENT)
         page.goto(LISTING_URL, wait_until="networkidle", timeout=30000)
 
-        # Προσπάθησε "100 αποτελέσματα ανά σελίδα" ώστε να χρειαστούν ~3
-        # σελίδες αντί για 29. Αν αποτύχει, συνεχίζουμε με το default.
+        # Προσπάθεια για "100 αποτελέσματα ανά σελίδα" ώστε να χρειαστούν
+        # μόνο 3 σελίδες αντί για 29. Το κάνουμε με το ίδιο pattern του
+        # postback (όχι CSS click) γιατί οι SharePoint dropdowns έχουν
+        # πολύπλοκη δομή.
         try:
-            page.locator("a:text-is('100')").first.click(timeout=5000)
-            page.wait_for_load_state("networkidle", timeout=15000)
-            print("[ok] Επιλέχθηκαν 100 αποτελέσματα/σελίδα", file=sys.stderr)
-        except Exception:
-            print("[warn] Δεν βρέθηκε επιλογή '100 ανά σελίδα' — συνεχίζω με default", file=sys.stderr)
+            hundred_href = page.evaluate(
+                """() => {
+                  const link = Array.from(document.querySelectorAll('a')).find(a =>
+                    a.textContent.trim() === '100' &&
+                    (a.getAttribute('href') || '').includes('__doPostBack'));
+                  return link ? link.getAttribute('href') : null;
+                }"""
+            )
+            if hundred_href:
+                js_code = hundred_href[len("javascript:"):] if hundred_href.startswith("javascript:") else hundred_href
+                page.evaluate(js_code)
+                page.wait_for_load_state("networkidle", timeout=15000)
+                print("[ok] Επιλέχθηκαν 100 αποτελέσματα/σελίδα", file=sys.stderr)
+            else:
+                print("[warn] Δεν βρέθηκε επιλογή '100 ανά σελίδα' — συνεχίζω με default", file=sys.stderr)
+        except Exception as e:
+            print(f"[warn] Δεν κατέστη δυνατή η αλλαγή σε 100/σελίδα ({e}) — συνεχίζω με default", file=sys.stderr)
 
         page_num = 1
         while page_num <= max_pages:
