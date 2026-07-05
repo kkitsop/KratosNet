@@ -179,6 +179,21 @@ def scrape(max_pages: int = 29) -> list[dict]:
         page = browser.new_page(user_agent=USER_AGENT)
         page.goto(LISTING_URL, wait_until="networkidle", timeout=30000)
 
+        # Το SharePoint φορτώνει το pagination με καθυστέρηση μέσω JavaScript.
+        # Περιμένουμε να εμφανιστεί το κείμενο "από N" (δείκτης ολοκλήρωσης).
+        try:
+            page.wait_for_function(
+                "() => /από\\s+\\d+/.test(document.body.textContent || '')",
+                timeout=15000
+            )
+            print("[ok] Pagination footer φορτώθηκε", file=sys.stderr)
+        except Exception:
+            print("[warn] Δεν εμφανίστηκε 'από N' — συνεχίζουμε πάντως", file=sys.stderr)
+
+        # Scroll στο τέλος για να ενεργοποιηθεί κάθε lazy-loading pagination
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(2000)
+
         # Προσπάθεια για "100 αποτελέσματα ανά σελίδα" ώστε να χρειαστούν
         # μόνο 3 σελίδες αντί για 29. Το κάνουμε με το ίδιο pattern του
         # postback (όχι CSS click) γιατί οι SharePoint dropdowns έχουν
@@ -240,12 +255,19 @@ def scrape(max_pages: int = 29) -> list[dict]:
                   const countMatches = bodyText.match(/από\\s+\\d+|of\\s+\\d+|σύνολο[^\\n]{0,30}\\d+/gi) || [];
                   // 4. Ελεγχος για SharePoint pager container
                   const pagerHtml = document.body.innerHTML.match(/pager[^"]{0,80}/gi) || [];
+                  // 5. Πάρε το HTML γύρω από το "από 286" — εκεί πρέπει να είναι το pagination
+                  const html = document.body.innerHTML;
+                  const idx = html.search(/από\\s+286/);
+                  const contextRaw = idx >= 0 ? html.substring(Math.max(0, idx-800), Math.min(html.length, idx+200)) : '';
+                  // Καθάρισε whitespace για ευανάγνωστο log
+                  const context = contextRaw.replace(/\\s+/g, ' ').slice(0, 1200);
                   return {
                     numeric: numeric,
                     numericCount: numeric.length,
                     loadMore: loadMore,
                     countMatches: countMatches.slice(0, 5),
-                    pagerHints: pagerHtml.slice(0, 5)
+                    pagerHints: pagerHtml.slice(0, 5),
+                    contextAroundCount: context
                   };
                 }"""
             )
@@ -257,6 +279,8 @@ def scrape(max_pages: int = 29) -> list[dict]:
                 print(f"  <{item['tag']}> text={item['text']!r} onclick={item['onclick']!r} id={item['id']!r} class={item['className']!r}", file=sys.stderr)
             print(f"[debug] Count text matches: {debug_info['countMatches']}", file=sys.stderr)
             print(f"[debug] Pager hints in HTML: {debug_info['pagerHints']}", file=sys.stderr)
+            print(f"[debug] HTML around 'από 286':", file=sys.stderr)
+            print(f"  {debug_info['contextAroundCount']}", file=sys.stderr)
         except Exception as e:
             print(f"[debug] error: {e}", file=sys.stderr)
 
