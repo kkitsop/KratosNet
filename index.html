@@ -218,6 +218,22 @@
   .dimos-item .dmeta{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--muted);
     display:flex; flex-wrap:wrap; gap:10px; margin-bottom:6px}
   .dimos-item a.doclink{font-size:12px; color:var(--aegean); font-weight:600; text-decoration:none}
+
+  /* ============ POPULAR/FEATURED SECTION ============ */
+  .popular-title{font-size:11px; text-transform:uppercase; letter-spacing:0.12em; color:var(--aegean);
+    font-weight:700; margin:0 0 12px; padding-bottom:6px; border-bottom:1.5px solid var(--aegean);
+    display:flex; align-items:center; gap:6px}
+  .popular-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:6px}
+  @media(max-width:500px){.popular-grid{grid-template-columns:repeat(4, 1fr); gap:6px}}
+  .popular-card{display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 6px;
+    background:var(--card); border:1px solid var(--card-line); border-radius:var(--radius);
+    text-decoration:none; color:var(--ink); text-align:center; transition:border-color .15s, transform .1s;
+    aspect-ratio:1/1; justify-content:center}
+  .popular-card:active{border-color:var(--aegean); transform:scale(0.96)}
+  .popular-card .picon{width:36px; height:36px; border-radius:50%; background:#fff;
+    border:1.5px solid var(--card-line); display:flex; align-items:center; justify-content:center; overflow:hidden}
+  .popular-card .picon img{width:22px; height:22px; object-fit:contain}
+  .popular-card .pname{font-weight:600; font-size:11.5px; line-height:1.2}
   .new-badge{display:inline-block; font-size:9px; font-weight:700; letter-spacing:0.05em;
     color:#fff; background:var(--seal-red); padding:2px 6px; border-radius:4px; margin-left:6px;
     vertical-align:middle}
@@ -263,6 +279,9 @@
 
   <!-- ================= GOV HUB TAB ================= -->
   <section id="tab-hub" class="active">
+    <div class="popular-title">⭐ Δημοφιλή</div>
+    <div class="popular-grid" id="popular-grid"></div>
+
     <div class="cat-title">Φορολογικά &amp; Οικονομικά</div>
     <div class="grid" id="cat-tax"></div>
 
@@ -661,6 +680,49 @@ function renderHub(){
     `;
     }).join("");
   }
+  renderPopular();
+}
+
+// Δημοφιλέστερες υπηρεσίες: quick-access grid στην κορυφή του Υπηρεσίες tab.
+// Οι εγγραφές αναφέρονται με το name τους στα GOV_LINKS ώστε να μην υπάρχει
+// duplication ρυθμίσεων (URL, inApp flag κ.λπ.) — αν αλλάξεις κάτι στο
+// GOV_LINKS, ενημερώνεται αυτόματα και εδώ.
+const POPULAR_NAMES = [
+  "TAXISnet", "myAADE", "gov.gr Wallet", "ΕΦΚΑ",
+  "myHealth", "ΚΕΠ", "MyAuto", "Διαύγεια"
+];
+
+function findLink(name){
+  for(const catId in GOV_LINKS){
+    const found = GOV_LINKS[catId].find(l => l.name === name);
+    if(found) return found;
+  }
+  return null;
+}
+
+function renderPopular(){
+  const el = document.getElementById("popular-grid");
+  if(!el) return;
+  el.innerHTML = POPULAR_NAMES.map(name => {
+    const l = findLink(name);
+    if(!l) return "";
+    let domain = "";
+    try{ domain = new URL(l.url).hostname; }catch(e){}
+    const favicon = domain
+      ? `https://www.google.com/s2/favicons?sz=64&domain=${domain}`
+      : "";
+    const linkAttrs = l.inApp
+      ? `href="${l.url}" data-inapp="1" data-name="${l.name.replace(/"/g,'')}"`
+      : `href="${l.url}" target="_blank" rel="noopener"`;
+    return `
+      <a class="popular-card" ${linkAttrs}>
+        <span class="picon">${favicon
+          ? `<img src="${favicon}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${l.code}',style:'font-size:11px;font-weight:600;color:var(--aegean)'}))">`
+          : `<span style="font-size:11px;font-weight:600;color:var(--aegean)">${l.code}</span>`}</span>
+        <span class="pname">${l.name}</span>
+      </a>
+    `;
+  }).join("");
 }
 
 // ===================== IN-APP VIEWER =====================
