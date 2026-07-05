@@ -202,6 +202,31 @@ def scrape(max_pages: int = 29) -> list[dict]:
         except Exception as e:
             print(f"[warn] Δεν κατέστη δυνατή η αλλαγή σε 100/σελίδα ({e}) — συνεχίζω με default", file=sys.stderr)
 
+        # === DEBUG ===: εκτύπωσε ΟΛΑ τα links με αριθμητικό κείμενο ή "επόμενη"/"next"
+        # για να δούμε την πραγματική δομή pagination. Θα αφαιρεθεί μόλις φτιαχτεί.
+        try:
+            debug_links = page.evaluate(
+                """() => {
+                  const all = Array.from(document.querySelectorAll('a'));
+                  const interesting = all.filter(a => {
+                    const t = a.textContent.trim();
+                    return /^\\d{1,3}$/.test(t) || /επόμ|next|>>|»/i.test(t) || t === '...';
+                  });
+                  return interesting.slice(0, 30).map(a => ({
+                    text: a.textContent.trim(),
+                    href: (a.getAttribute('href') || '').slice(0, 80),
+                    onclick: (a.getAttribute('onclick') || '').slice(0, 80),
+                    id: a.id || '',
+                    className: (a.className || '').slice(0, 60)
+                  }));
+                }"""
+            )
+            print(f"[debug] Βρέθηκαν {len(debug_links)} πιθανά pagination links:", file=sys.stderr)
+            for link in debug_links:
+                print(f"  text={link['text']!r} href={link['href']!r} onclick={link['onclick']!r} id={link['id']!r} class={link['className']!r}", file=sys.stderr)
+        except Exception as e:
+            print(f"[debug] error: {e}", file=sys.stderr)
+
         page_num = 1
         while page_num <= max_pages:
             items = extract_items_from_page(page)
