@@ -116,13 +116,42 @@ def extract_items_from_page(page) -> list[dict]:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Αλλάζει σελίδα καλώντας απευθείας το __doPostBack της SharePoint.
+    """Αλλάζει σελίδα καλώντας τη σωστή SharePoint postback συνάρτηση.
 
-    Το select_option του Playwright αλλάζει την τιμή αλλά δεν ενεργοποιεί
-    πάντα το ASP.NET postback (το SharePoint έχει custom event handling).
-    Η αξιόπιστη μέθοδος είναι να καλέσουμε απευθείας το __doPostBack
-    χρησιμοποιώντας το name του DropDownListPagesTop ως event target."""
+    Το __doPostBack δεν είναι global — ψάχνουμε δυναμικά ποια postback
+    συνάρτηση είναι διαθέσιμη (WebForm_DoPostBackWithOptions, __doPostBack
+    ως string call, ή direct form submit)."""
     next_num = current_page_num + 1
+
+    # DIAGNOSTIC: μία φορά, στη σελίδα 1, τύπωσε τι υπάρχει
+    if current_page_num == 1:
+        diag = page.evaluate("""() => {
+          const globals = ['__doPostBack', 'WebForm_DoPostBackWithOptions',
+                          '__theFormPostData', '__EVENTTARGET'];
+          const found = {};
+          for (const g of globals) {
+            found[g] = typeof window[g];
+          }
+          // Ψάξε στο <form> το πραγματικό onsubmit
+          const form = document.querySelector('form');
+          const formInfo = form ? {
+            id: form.id, name: form.name, action: form.action,
+            onsubmit: (form.getAttribute('onsubmit') || '').slice(0, 200)
+          } : null;
+          // Ψάξε το select για event handlers
+          const sel = document.querySelector("select[id$='DropDownListPagesTop']");
+          const selInfo = sel ? {
+            name: sel.name, id: sel.id,
+            onchange: (sel.getAttribute('onchange') || '').slice(0, 300),
+            hasChangeListener: sel.oninteger || sel.onchange || 'null'
+          } : null;
+          return {globals: found, form: formInfo, select: selInfo};
+        }""")
+        print(f"[debug] APIs: {diag['globals']}", file=sys.stderr)
+        print(f"[debug] Form: {diag['form']}", file=sys.stderr)
+        print(f"[debug] Select: {diag['select']}", file=sys.stderr)
+
+    # Δοκίμασε πολλαπλές μεθόδους σε σειρά — η πρώτη που δουλέψει κερδίζει
     result = page.evaluate(
         f"""() => {{
           const sel = document.querySelector("select[id$='DropDownListPagesTop']");
@@ -131,15 +160,34 @@ def go_to_next_page(page, current_page_num: int) -> bool:
           const opt = Array.from(sel.options).find(o => o.value === '{next_num}');
           if (!opt) return {{ok: false, reason: 'no-option'}};
 
-          // Άλλαξε πρώτα την τιμή για να τη δει το ViewState
           sel.value = '{next_num}';
 
-          // Ενεργοποίησε __doPostBack με το name του select ως target
+          // ΜΕΘΟΔΟΣ 1: Καλά events (input + change με bubbling)
+          // Ίσως ο event listener είναι attached με addEventListener
+          sel.dispatchEvent(new Event('input', {{bubbles: true}}));
+          sel.dispatchEvent(new Event('change', {{bubbles: true}}));
+
+          // ΜΕΘΟΔΟΣ 2: Αν υπάρχει inline onchange (κοίτα τα attributes), εκτέλεσέ το
+          const onchangeAttr = sel.getAttribute('onchange');
+          if (onchangeAttr) {{
+            try {{ new Function(onchangeAttr).call(sel); }} catch(e) {{}}
+          }}
+
+          // ΜΕΘΟΔΟΣ 3: Άμεσο form submit αν το postback συνάρτηση υπάρχει
           if (typeof __doPostBack === 'function') {{
             __doPostBack(sel.name, '');
-            return {{ok: true, reason: 'postback-called', name: sel.name}};
+            return {{ok: true, method: 'doPostBack-direct'}};
           }}
-          return {{ok: false, reason: 'no-doPostBack'}};
+
+          // ΜΕΘΟΔΟΣ 4: Ψάξε στο global scope για ό,τι μοιάζει με postback
+          for (const key of Object.keys(window)) {{
+            if (/postback/i.test(key) && typeof window[key] === 'function') {{
+              try {{ window[key](sel.name, ''); return {{ok: true, method: 'found-' + key}}; }}
+              catch(e) {{}}
+            }}
+          }}
+
+          return {{ok: true, method: 'events-only'}};
         }}"""
     )
 
@@ -147,12 +195,11 @@ def go_to_next_page(page, current_page_num: int) -> bool:
         print(f"[debug] postback δεν έγινε: {result.get('reason')}", file=sys.stderr)
         return False
 
-    # Περιμένουμε το postback να ολοκληρωθεί ΚΑΙ το DOM να ανανεωθεί.
-    # Το networkidle μόνο του δεν αρκεί — πρέπει να αλλάξει και ο τίτλος
-    # του πρώτου προγράμματος για να ξέρουμε ότι πράγματι φορτώθηκε νέα σελίδα.
+    print(f"[debug] postback method: {result.get('method')}", file=sys.stderr)
+
     try:
         page.wait_for_load_state("networkidle", timeout=20000)
-        page.wait_for_timeout(1500)  # επιπλέον για SharePoint AJAX rerender
+        page.wait_for_timeout(1500)
     except Exception as e:
         print(f"[warn] Αναμονή σελίδας απέτυχε: {e}", file=sys.stderr)
         return False
