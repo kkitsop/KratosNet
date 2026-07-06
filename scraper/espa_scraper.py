@@ -116,95 +116,59 @@ def extract_items_from_page(page) -> list[dict]:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Αλλάζει σελίδα καλώντας τη σωστή SharePoint postback συνάρτηση.
+    """Αλλάζει σελίδα στο SharePoint dropdown με την πιο αξιόπιστη μέθοδο:
 
-    Το __doPostBack δεν είναι global — ψάχνουμε δυναμικά ποια postback
-    συνάρτηση είναι διαθέσιμη (WebForm_DoPostBackWithOptions, __doPostBack
-    ως string call, ή direct form submit)."""
+    1. Καταγράφει τον τίτλο του πρώτου προγράμματος τώρα (fingerprint)
+    2. Καλεί select_option (Playwright, ενεργοποιεί σωστά events)
+    3. Περιμένει ρητά να αλλάξει ο πρώτος τίτλος (σημάδι ότι φορτώθηκε νέα σελίδα)
+
+    Αυτή η μέθοδος δεν εξαρτάται από __doPostBack, WebForm functions ή άλλα
+    global APIs που το SharePoint αυτής της σελίδας δεν εκθέτει. Απλά περιμένει
+    το DOM να αλλάξει."""
     next_num = current_page_num + 1
+    select_selector = "select[id$='DropDownListPagesTop']"
 
-    # DIAGNOSTIC: μία φορά, στη σελίδα 1, τύπωσε τι υπάρχει
-    if current_page_num == 1:
-        diag = page.evaluate("""() => {
-          const globals = ['__doPostBack', 'WebForm_DoPostBackWithOptions',
-                          '__theFormPostData', '__EVENTTARGET'];
-          const found = {};
-          for (const g of globals) {
-            found[g] = typeof window[g];
-          }
-          // Ψάξε στο <form> το πραγματικό onsubmit
-          const form = document.querySelector('form');
-          const formInfo = form ? {
-            id: form.id, name: form.name, action: form.action,
-            onsubmit: (form.getAttribute('onsubmit') || '').slice(0, 200)
-          } : null;
-          // Ψάξε το select για event handlers
-          const sel = document.querySelector("select[id$='DropDownListPagesTop']");
-          const selInfo = sel ? {
-            name: sel.name, id: sel.id,
-            onchange: (sel.getAttribute('onchange') || '').slice(0, 300),
-            hasChangeListener: sel.oninteger || sel.onchange || 'null'
-          } : null;
-          return {globals: found, form: formInfo, select: selInfo};
-        }""")
-        print(f"[debug] APIs: {diag['globals']}", file=sys.stderr)
-        print(f"[debug] Form: {diag['form']}", file=sys.stderr)
-        print(f"[debug] Select: {diag['select']}", file=sys.stderr)
+    # Καταγραφή τίτλου πριν την αλλαγή
+    old_title = page.evaluate("""() => {
+      const h = document.querySelector('h3, h4');
+      return h ? h.textContent.trim() : '';
+    }""")
 
-    # Δοκίμασε πολλαπλές μεθόδους σε σειρά — η πρώτη που δουλέψει κερδίζει
-    result = page.evaluate(
+    # Έλεγχος ότι υπάρχει option για την επόμενη σελίδα
+    has_option = page.evaluate(
         f"""() => {{
-          const sel = document.querySelector("select[id$='DropDownListPagesTop']");
-          if (!sel) return {{ok: false, reason: 'no-select'}};
-
-          const opt = Array.from(sel.options).find(o => o.value === '{next_num}');
-          if (!opt) return {{ok: false, reason: 'no-option'}};
-
-          sel.value = '{next_num}';
-
-          // ΜΕΘΟΔΟΣ 1: Καλά events (input + change με bubbling)
-          // Ίσως ο event listener είναι attached με addEventListener
-          sel.dispatchEvent(new Event('input', {{bubbles: true}}));
-          sel.dispatchEvent(new Event('change', {{bubbles: true}}));
-
-          // ΜΕΘΟΔΟΣ 2: Αν υπάρχει inline onchange (κοίτα τα attributes), εκτέλεσέ το
-          const onchangeAttr = sel.getAttribute('onchange');
-          if (onchangeAttr) {{
-            try {{ new Function(onchangeAttr).call(sel); }} catch(e) {{}}
-          }}
-
-          // ΜΕΘΟΔΟΣ 3: Άμεσο form submit αν το postback συνάρτηση υπάρχει
-          if (typeof __doPostBack === 'function') {{
-            __doPostBack(sel.name, '');
-            return {{ok: true, method: 'doPostBack-direct'}};
-          }}
-
-          // ΜΕΘΟΔΟΣ 4: Ψάξε στο global scope για ό,τι μοιάζει με postback
-          for (const key of Object.keys(window)) {{
-            if (/postback/i.test(key) && typeof window[key] === 'function') {{
-              try {{ window[key](sel.name, ''); return {{ok: true, method: 'found-' + key}}; }}
-              catch(e) {{}}
-            }}
-          }}
-
-          return {{ok: true, method: 'events-only'}};
+          const sel = document.querySelector("{select_selector}");
+          if (!sel) return false;
+          return Array.from(sel.options).some(o => o.value === '{next_num}');
         }}"""
     )
-
-    if not result.get("ok"):
-        print(f"[debug] postback δεν έγινε: {result.get('reason')}", file=sys.stderr)
+    if not has_option:
         return False
-
-    print(f"[debug] postback method: {result.get('method')}", file=sys.stderr)
 
     try:
-        page.wait_for_load_state("networkidle", timeout=20000)
-        page.wait_for_timeout(1500)
+        # select_option κάνει mouse-driven simulation (open, click, close)
+        # που ενεργοποιεί JavaScript event listeners που έχουν attached με addEventListener
+        page.select_option(select_selector, value=str(next_num))
     except Exception as e:
-        print(f"[warn] Αναμονή σελίδας απέτυχε: {e}", file=sys.stderr)
+        print(f"[warn] select_option: {e}", file=sys.stderr)
         return False
 
-    return True
+    # Περιμένουμε ρητά να αλλάξει ο τίτλος του πρώτου προγράμματος.
+    # Αυτό είναι το μόνο αξιόπιστο σήμα ότι η νέα σελίδα φορτώθηκε.
+    try:
+        page.wait_for_function(
+            """(oldTitle) => {
+              const h = document.querySelector('h3, h4');
+              return h && h.textContent.trim() !== oldTitle && h.textContent.trim().length > 5;
+            }""",
+            arg=old_title,
+            timeout=15000
+        )
+        page.wait_for_timeout(500)  # επιπλέον για ολοκλήρωση rerender
+        return True
+    except Exception:
+        print(f"[warn] Τίτλος δεν άλλαξε μετά select_option σε σελ.{next_num}", file=sys.stderr)
+        return False
 
 
 def find_next_page_href(page, next_num: int) -> str | None:
