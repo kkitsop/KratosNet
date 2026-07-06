@@ -116,25 +116,19 @@ def extract_items_from_page(page) -> list[dict]:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Αλλάζει σελίδα στο SharePoint dropdown με την πιο αξιόπιστη μέθοδο:
+    """Αλλάζει σελίδα με ρεαλιστική προσομοίωση αλληλεπίδρασης χρήστη.
 
-    1. Καταγράφει τον τίτλο του πρώτου προγράμματος τώρα (fingerprint)
-    2. Καλεί select_option (Playwright, ενεργοποιεί σωστά events)
-    3. Περιμένει ρητά να αλλάξει ο πρώτος τίτλος (σημάδι ότι φορτώθηκε νέα σελίδα)
-
-    Αυτή η μέθοδος δεν εξαρτάται από __doPostBack, WebForm functions ή άλλα
-    global APIs που το SharePoint αυτής της σελίδας δεν εκθέτει. Απλά περιμένει
-    το DOM να αλλάξει."""
+    Το select_option του Playwright δεν αρκεί για SharePoint pages που
+    έχουν custom event handling. Δοκιμάζουμε πιο ρεαλιστική προσέγγιση:
+    focus() → keyboard input της τιμής → press Enter."""
     next_num = current_page_num + 1
     select_selector = "select[id$='DropDownListPagesTop']"
 
-    # Καταγραφή τίτλου πριν την αλλαγή
     old_title = page.evaluate("""() => {
       const h = document.querySelector('h3, h4');
       return h ? h.textContent.trim() : '';
     }""")
 
-    # Έλεγχος ότι υπάρχει option για την επόμενη σελίδα
     has_option = page.evaluate(
         f"""() => {{
           const sel = document.querySelector("{select_selector}");
@@ -146,15 +140,22 @@ def go_to_next_page(page, current_page_num: int) -> bool:
         return False
 
     try:
-        # select_option κάνει mouse-driven simulation (open, click, close)
-        # που ενεργοποιεί JavaScript event listeners που έχουν attached με addEventListener
-        page.select_option(select_selector, value=str(next_num))
+        # Ρεαλιστική αλληλεπίδραση:
+        # 1. Focus στο select (ενεργοποιεί focus listeners)
+        page.focus(select_selector)
+        # 2. Χρησιμοποίησε το keyboard για να πληκτρολογήσουμε τον αριθμό
+        #    Αυτό ενεργοποιεί keydown/keyup/input/change events με τη σειρά
+        #    που περιμένει το SharePoint
+        page.keyboard.type(str(next_num))
+        # 3. Ένα μικρό delay για να διαβαστεί η επιλογή
+        page.wait_for_timeout(300)
+        # 4. Enter/Tab για να επικυρώσουμε
+        page.keyboard.press("Tab")
     except Exception as e:
-        print(f"[warn] select_option: {e}", file=sys.stderr)
+        print(f"[warn] keyboard input: {e}", file=sys.stderr)
         return False
 
-    # Περιμένουμε ρητά να αλλάξει ο τίτλος του πρώτου προγράμματος.
-    # Αυτό είναι το μόνο αξιόπιστο σήμα ότι η νέα σελίδα φορτώθηκε.
+    # Περιμένουμε το DOM να αλλάξει (νέος τίτλος πρώτου προγράμματος)
     try:
         page.wait_for_function(
             """(oldTitle) => {
@@ -164,10 +165,19 @@ def go_to_next_page(page, current_page_num: int) -> bool:
             arg=old_title,
             timeout=15000
         )
-        page.wait_for_timeout(500)  # επιπλέον για ολοκλήρωση rerender
+        page.wait_for_timeout(500)
         return True
     except Exception:
-        print(f"[warn] Τίτλος δεν άλλαξε μετά select_option σε σελ.{next_num}", file=sys.stderr)
+        print(f"[warn] Τίτλος δεν άλλαξε μετά keyboard input σε σελ.{next_num}", file=sys.stderr)
+        # DIAGNOSTIC μία φορά: τι τιμή έχει το select τώρα;
+        if current_page_num == 1:
+            state = page.evaluate(
+                f"""() => {{
+                  const sel = document.querySelector("{select_selector}");
+                  return sel ? {{value: sel.value, selectedIndex: sel.selectedIndex}} : null;
+                }}"""
+            )
+            print(f"[debug] Select state: {state}", file=sys.stderr)
         return False
 
 
