@@ -180,6 +180,7 @@ def scrape(max_pages: int = 29) -> list[dict]:
         page_num = 1
         while page_num <= max_pages:
             items = extract_items_from_page(page)
+            first_title = items[0]["title"][:60] if items else "(κενή)"
             for it in items:
                 title = it["title"]
                 block_text = it["blockText"]
@@ -212,7 +213,7 @@ def scrape(max_pages: int = 29) -> list[dict]:
                     "source": "espa.gr",
                     "fetched_at": datetime.now(timezone.utc).isoformat(),
                 }
-            print(f"[ok] σελίδα {page_num}: σύνολο {len(all_programs)} προγράμματα", file=sys.stderr)
+            print(f"[ok] σελίδα {page_num}: raw={len(items)} unique={len(all_programs)} πρώτος='{first_title}'", file=sys.stderr)
 
             if not go_to_next_page(page, page_num):
                 print("[ok] Τέλος σελιδοποίησης.", file=sys.stderr)
