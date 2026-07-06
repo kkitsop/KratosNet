@@ -116,29 +116,48 @@ def extract_items_from_page(page) -> list[dict]:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Αλλάζει σελίδα μέσω του SharePoint DropDownList (επιβεβαιωμένο από
-    το πραγματικό DOM: το site έχει <select id="...DropDownListPagesTop">
-    με options 1..N). Το Playwright.select_option() ενεργοποιεί σωστά το
-    ASP.NET postback (change event → __doPostBack)."""
+    """Αλλάζει σελίδα καλώντας απευθείας το __doPostBack της SharePoint.
+
+    Το select_option του Playwright αλλάζει την τιμή αλλά δεν ενεργοποιεί
+    πάντα το ASP.NET postback (το SharePoint έχει custom event handling).
+    Η αξιόπιστη μέθοδος είναι να καλέσουμε απευθείας το __doPostBack
+    χρησιμοποιώντας το name του DropDownListPagesTop ως event target."""
     next_num = current_page_num + 1
-    select_selector = "select[id$='DropDownListPagesTop']"
-    try:
-        # Έλεγξε ότι υπάρχει option για την επόμενη σελίδα
-        has_option = page.evaluate(
-            f"""() => {{
-              const sel = document.querySelector("{select_selector}");
-              if (!sel) return false;
-              return Array.from(sel.options).some(o => o.value === '{next_num}');
-            }}"""
-        )
-        if not has_option:
-            return False
-        page.select_option(select_selector, value=str(next_num))
-        page.wait_for_load_state("networkidle", timeout=20000)
-        return True
-    except Exception as e:
-        print(f"[warn] Αλλαγή σελίδας απέτυχε: {e}", file=sys.stderr)
+    result = page.evaluate(
+        f"""() => {{
+          const sel = document.querySelector("select[id$='DropDownListPagesTop']");
+          if (!sel) return {{ok: false, reason: 'no-select'}};
+
+          const opt = Array.from(sel.options).find(o => o.value === '{next_num}');
+          if (!opt) return {{ok: false, reason: 'no-option'}};
+
+          // Άλλαξε πρώτα την τιμή για να τη δει το ViewState
+          sel.value = '{next_num}';
+
+          // Ενεργοποίησε __doPostBack με το name του select ως target
+          if (typeof __doPostBack === 'function') {{
+            __doPostBack(sel.name, '');
+            return {{ok: true, reason: 'postback-called', name: sel.name}};
+          }}
+          return {{ok: false, reason: 'no-doPostBack'}};
+        }}"""
+    )
+
+    if not result.get("ok"):
+        print(f"[debug] postback δεν έγινε: {result.get('reason')}", file=sys.stderr)
         return False
+
+    # Περιμένουμε το postback να ολοκληρωθεί ΚΑΙ το DOM να ανανεωθεί.
+    # Το networkidle μόνο του δεν αρκεί — πρέπει να αλλάξει και ο τίτλος
+    # του πρώτου προγράμματος για να ξέρουμε ότι πράγματι φορτώθηκε νέα σελίδα.
+    try:
+        page.wait_for_load_state("networkidle", timeout=20000)
+        page.wait_for_timeout(1500)  # επιπλέον για SharePoint AJAX rerender
+    except Exception as e:
+        print(f"[warn] Αναμονή σελίδας απέτυχε: {e}", file=sys.stderr)
+        return False
+
+    return True
 
 
 def find_next_page_href(page, next_num: int) -> str | None:
