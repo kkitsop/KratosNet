@@ -116,11 +116,7 @@ def extract_items_from_page(page) -> list[dict]:
 
 
 def go_to_next_page(page, current_page_num: int) -> bool:
-    """Αλλάζει σελίδα με ρεαλιστική προσομοίωση αλληλεπίδρασης χρήστη.
-
-    Το select_option του Playwright δεν αρκεί για SharePoint pages που
-    έχουν custom event handling. Δοκιμάζουμε πιο ρεαλιστική προσέγγιση:
-    focus() → keyboard input της τιμής → press Enter."""
+    """Αναζήτηση της πραγματικής pagination συνάρτησης του site."""
     next_num = current_page_num + 1
     select_selector = "select[id$='DropDownListPagesTop']"
 
@@ -128,6 +124,48 @@ def go_to_next_page(page, current_page_num: int) -> bool:
       const h = document.querySelector('h3, h4');
       return h ? h.textContent.trim() : '';
     }""")
+
+    # DIAGNOSTIC στη σελίδα 1: τύπωσε ΟΛΑ τα στοιχεία μέσα στο pagingPanel
+    if current_page_num == 1:
+        diag = page.evaluate("""() => {
+          const panel = document.querySelector('[id*="pagingPanel"]');
+          if (!panel) return null;
+
+          const allElements = Array.from(panel.querySelectorAll('*')).map(el => ({
+            tag: el.tagName,
+            id: el.id || '',
+            className: (el.className || '').toString().slice(0, 60),
+            type: el.getAttribute('type') || '',
+            value: (el.value !== undefined ? String(el.value) : '').slice(0, 30),
+            text: (el.textContent || '').trim().slice(0, 40),
+            onclick: (el.getAttribute('onclick') || '').slice(0, 150),
+            title: (el.getAttribute('title') || '').slice(0, 50),
+            src: (el.getAttribute('src') || '').slice(0, 60)
+          }));
+
+          // Ψάξε όλα τα scripts κοντά στο panel για συναρτήσεις που το ελέγχουν
+          const nearScripts = [];
+          document.querySelectorAll('script').forEach(s => {
+            const txt = (s.textContent || '').slice(0, 5000);
+            if (/DropDownListPages|pagingPanel|MoveToView|pageIndex/i.test(txt)) {
+              // Πάρε 3 σχετικά snippets με context
+              const matches = txt.match(/[^\\n]{0,50}(DropDownListPages|pagingPanel|MoveToView|pageIndex)[^\\n]{0,200}/g);
+              if (matches) nearScripts.push(...matches.slice(0, 3));
+            }
+          });
+
+          return {elements: allElements, scripts: nearScripts.slice(0, 8)};
+        }""")
+
+        if diag:
+            print(f"[debug] Στοιχεία στο pagingPanel ({len(diag['elements'])}):", file=sys.stderr)
+            for el in diag['elements']:
+                relevant = el['onclick'] or el['type'] in ('button', 'submit', 'image') or el['src'] or 'button' in el['className'].lower() or 'next' in el['title'].lower() or 'επόμ' in el['title'].lower()
+                if relevant or el['tag'] in ('INPUT', 'BUTTON', 'IMG'):
+                    print(f"  <{el['tag']}> id={el['id']!r} type={el['type']!r} value={el['value']!r} title={el['title']!r} onclick={el['onclick']!r} src={el['src']!r}", file=sys.stderr)
+            print(f"[debug] JS snippets σχετικά με pagination:", file=sys.stderr)
+            for s in diag['scripts']:
+                print(f"  {s}", file=sys.stderr)
 
     has_option = page.evaluate(
         f"""() => {{
@@ -139,23 +177,16 @@ def go_to_next_page(page, current_page_num: int) -> bool:
     if not has_option:
         return False
 
+    # Δοκίμασε την keyboard προσέγγιση όπως πριν, απλά για να μη σπάσει το flow
     try:
-        # Ρεαλιστική αλληλεπίδραση:
-        # 1. Focus στο select (ενεργοποιεί focus listeners)
         page.focus(select_selector)
-        # 2. Χρησιμοποίησε το keyboard για να πληκτρολογήσουμε τον αριθμό
-        #    Αυτό ενεργοποιεί keydown/keyup/input/change events με τη σειρά
-        #    που περιμένει το SharePoint
         page.keyboard.type(str(next_num))
-        # 3. Ένα μικρό delay για να διαβαστεί η επιλογή
         page.wait_for_timeout(300)
-        # 4. Enter/Tab για να επικυρώσουμε
         page.keyboard.press("Tab")
     except Exception as e:
-        print(f"[warn] keyboard input: {e}", file=sys.stderr)
+        print(f"[warn] keyboard: {e}", file=sys.stderr)
         return False
 
-    # Περιμένουμε το DOM να αλλάξει (νέος τίτλος πρώτου προγράμματος)
     try:
         page.wait_for_function(
             """(oldTitle) => {
@@ -163,21 +194,10 @@ def go_to_next_page(page, current_page_num: int) -> bool:
               return h && h.textContent.trim() !== oldTitle && h.textContent.trim().length > 5;
             }""",
             arg=old_title,
-            timeout=15000
+            timeout=5000
         )
-        page.wait_for_timeout(500)
         return True
     except Exception:
-        print(f"[warn] Τίτλος δεν άλλαξε μετά keyboard input σε σελ.{next_num}", file=sys.stderr)
-        # DIAGNOSTIC μία φορά: τι τιμή έχει το select τώρα;
-        if current_page_num == 1:
-            state = page.evaluate(
-                f"""() => {{
-                  const sel = document.querySelector("{select_selector}");
-                  return sel ? {{value: sel.value, selectedIndex: sel.selectedIndex}} : null;
-                }}"""
-            )
-            print(f"[debug] Select state: {state}", file=sys.stderr)
         return False
 
 
