@@ -1,2 +1,1 @@
-# Το νέο RSS-based scraper δεν χρειάζεται εξωτερικές εξαρτήσεις.
-# Χρησιμοποιεί μόνο τη standard library της Python (urllib, xml.etree).
+playwright==1.56.0
