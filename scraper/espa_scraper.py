@@ -83,31 +83,58 @@ def guess_kad_tags(text: str) -> list[str]:
 
 
 def extract_items_from_page(page) -> list[dict]:
-    """Παίρνει τα προγράμματα από την τρέχουσα σελίδα του Proclamations."""
+    """Παίρνει τα προγράμματα από την τρέχουσα σελίδα του Proclamations.
+
+    Δοκιμάζει πολλαπλά selectors γιατί η δομή SharePoint σελίδων ποικίλλει."""
     return page.evaluate(
         """
         () => {
-          // Ψάξε containers που περιέχουν τίτλο πρόσκλησης (h3/h4 links)
           const items = [];
-          const headers = document.querySelectorAll('h3 a, h4 a');
           const seen = new Set();
+
+          // Στρατηγική 1: Βρες όλα τα links προς σελίδες πρόσκλησης (τυπικά έχουν item=NNNN στο URL)
+          const proclamationLinks = Array.from(document.querySelectorAll('a[href*="item="]'));
+          for (const link of proclamationLinks) {
+            const title = link.textContent.trim();
+            if (!title || title.length < 15 || seen.has(title)) continue;
+            // Απόρριψε γενικούς συνδέσμους (π.χ. "Δείτε περισσότερα")
+            if (/^(δείτε|see|read|more|διαβάστε|περισσότερ|edit|επεξεργασία)/i.test(title)) continue;
+            seen.add(title);
+
+            // Πάρε ό,τι μοιάζει με container (μέχρι 5 επίπεδα πίσω)
+            let container = link;
+            for (let i = 0; i < 5; i++) {
+              if (!container.parentElement) break;
+              container = container.parentElement;
+              const txt = container.textContent || '';
+              // Σταμάτησε όταν βρεις container που έχει τα μεταδεδομένα
+              if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα')) break;
+            }
+
+            items.push({
+              title,
+              blockText: container ? container.textContent : '',
+              moreHref: link.href || ''
+            });
+          }
+
+          if (items.length > 0) return items;
+
+          // Στρατηγική 2 fallback: h3/h4 links (η παλιά προσέγγιση)
+          const headers = document.querySelectorAll('h3 a, h4 a');
           for (const link of headers) {
             const title = link.textContent.trim();
             if (!title || title.length < 10 || seen.has(title)) continue;
             seen.add(title);
-
-            // Πάρε το γονικό container του τίτλου (τυπικά div ή article)
-            let container = link.closest('article, div.item, div.proclamation, li, tr');
-            if (!container) {
-              // Fallback: 3 επίπεδα πίσω
-              container = link.parentElement;
-              for (let i = 0; i < 3 && container; i++) container = container.parentElement;
-            }
-            const blockText = container ? container.textContent : '';
-            const moreHref = link.href || '';
-
-            items.push({title, blockText, moreHref});
+            let container = link.parentElement;
+            for (let i = 0; i < 5 && container; i++) container = container.parentElement;
+            items.push({
+              title,
+              blockText: container ? container.textContent : '',
+              moreHref: link.href || ''
+            });
           }
+
           return items;
         }
         """
@@ -127,17 +154,40 @@ def scrape_page_one() -> list[dict]:
         page = browser.new_page(user_agent=USER_AGENT)
         page.goto(LISTING_URL, wait_until="networkidle", timeout=30000)
 
-        # Περιμένουμε να φορτώσει η λίστα
+        # Περιμένουμε να φορτώσει η λίστα προγραμμάτων
         try:
             page.wait_for_function(
-                "() => document.querySelectorAll('h3 a, h4 a').length > 3",
+                "() => document.querySelectorAll('a[href*=\"item=\"]').length > 3 || document.querySelectorAll('h3 a, h4 a').length > 3",
                 timeout=15000
             )
         except Exception:
-            print("[warn] Δεν φόρτωσε λίστα προγραμμάτων εντός 15s", file=sys.stderr)
+            print("[warn] Δεν φόρτωσε λίστα προγραμμάτων εντός 15s — προχωράμε πάντως", file=sys.stderr)
 
         items = extract_items_from_page(page)
         print(f"[ok] Βρέθηκαν {len(items)} προγράμματα στη σελίδα 1", file=sys.stderr)
+
+        # Debug όταν βρίσκουμε 0
+        if len(items) == 0:
+            diag = page.evaluate("""() => ({
+              url: location.href,
+              title: document.title,
+              bodyLength: document.body.textContent.length,
+              itemLinks: document.querySelectorAll('a[href*="item="]').length,
+              h3Links: document.querySelectorAll('h3 a').length,
+              h4Links: document.querySelectorAll('h4 a').length,
+              firstLinks: Array.from(document.querySelectorAll('a')).slice(5, 15).map(a => ({
+                text: (a.textContent || '').trim().slice(0, 60),
+                href: (a.href || '').slice(0, 100)
+              }))
+            })""")
+            print(f"[debug] URL: {diag['url']}", file=sys.stderr)
+            print(f"[debug] Title: {diag['title']}", file=sys.stderr)
+            print(f"[debug] Body length: {diag['bodyLength']}", file=sys.stderr)
+            print(f"[debug] a[href*=item=] links: {diag['itemLinks']}", file=sys.stderr)
+            print(f"[debug] h3 links: {diag['h3Links']}, h4 links: {diag['h4Links']}", file=sys.stderr)
+            print(f"[debug] Sample links:", file=sys.stderr)
+            for l in diag['firstLinks']:
+                print(f"  text='{l['text']}' href='{l['href']}'", file=sys.stderr)
 
         for it in items:
             title = it["title"]
