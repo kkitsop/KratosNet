@@ -1,7 +1,6 @@
 {
-  "generated_at": "2026-07-01T00:00:00Z",
-  "note": "Seed δεδομένα από πραγματική άντληση espa.gr στις 1/7/2026. Θα αντικατασταθούν αυτόματα από το nightly scraper (GitHub Actions) μόλις ρυθμιστεί.",
-  "count": 10,
+  "generated_at": "2026-07-07T12:24:08.479053+00:00",
+  "count": 18,
   "programs": [
     {
       "id": "7273",
@@ -14,7 +13,9 @@
       "budget": null,
       "beneficiaries": "ΜΜΕ σε τεχνολογίες STEP/Defence",
       "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7273",
-      "kad_tags": ["62"],
+      "kad_tags": [
+        "62"
+      ],
       "source": "espa.gr"
     },
     {
@@ -56,7 +57,9 @@
       "budget": "2.000.000 €",
       "beneficiaries": "Περιφέρεια Κρήτης, Περιφερειακό Ταμείο Ανάπτυξης Κρήτης",
       "url": "https://www.espa.gr/el/Pages/ProclamationsFS.aspx?item=7266",
-      "kad_tags": ["55"],
+      "kad_tags": [
+        "55"
+      ],
       "source": "espa.gr"
     },
     {
@@ -112,9 +115,194 @@
       "budget": "23.000.000 € (συνολικά, 3 υποδράσεις)",
       "beneficiaries": "Ατομικές επιχειρήσεις επιστημόνων (5-10k€), Μικρές επενδύσεις (5-40k€), Μεσαίες επενδύσεις (40-120k€)",
       "url": "https://www.espa.gr/el/Pages/Proclamations.aspx",
-      "kad_tags": ["56", "47", "62"],
+      "kad_tags": [
+        "56",
+        "47",
+        "62"
+      ],
       "source": "espa.gr / δευτερογενής πηγή (nconsulting.gr) — ΕΠΙΒΕΒΑΙΩΣΕ ημερομηνία λήξης, ενδέχεται να έχει ήδη κλείσει ή να υπάρχει νέος κύκλος",
       "note_for_konstantinos": "Ο κύκλος 10/2-7/4/2026 έχει πιθανώς ήδη λήξει — έλεγξε στο espa.gr/Proclamations.aspx για νέο κύκλο ή παράταση για Αιτωλοακαρνανία"
+    },
+    {
+      "id": "7298",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Ιόνια Νησιά",
+      "region": "Περιφέρεια Ιονίων Νήσων",
+      "beneficiaries": "",
+      "submission_start": "2026-06-26",
+      "submission_end": "2026-08-28",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7298&action=add",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442055+00:00",
+      "first_seen": "2026-07-07T12:24:08.442055+00:00"
+    },
+    {
+      "id": "7297",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Ιόνια Νησιά",
+      "region": "Περιφέρεια Ιονίων Νήσων",
+      "beneficiaries": "",
+      "submission_start": "2026-07-01",
+      "submission_end": "2026-09-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7297&action=add",
+      "kad_tags": [
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442130+00:00",
+      "first_seen": "2026-07-07T12:24:08.442130+00:00"
+    },
+    {
+      "id": "7296",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Ήπειρος",
+      "region": "Περιφέρεια Ηπείρου",
+      "beneficiaries": "",
+      "submission_start": "2026-07-07",
+      "submission_end": "2026-12-15",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7296&action=add",
+      "kad_tags": [
+        "55",
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442202+00:00",
+      "first_seen": "2026-07-07T12:24:08.442202+00:00"
+    },
+    {
+      "id": "7295",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Ήπειρος",
+      "region": "Περιφέρεια Ηπείρου",
+      "beneficiaries": "",
+      "submission_start": "2026-07-07",
+      "submission_end": "2026-12-15",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7295&action=add",
+      "kad_tags": [
+        "55",
+        "62",
+        "90"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442266+00:00",
+      "first_seen": "2026-07-07T12:24:08.442266+00:00"
+    },
+    {
+      "id": "7294",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Πελοπόννησος",
+      "region": "Περιφέρεια Πελοποννήσου",
+      "beneficiaries": "",
+      "submission_start": "2026-07-02",
+      "submission_end": "2026-09-04",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7294&action=add",
+      "kad_tags": [
+        "62"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442312+00:00",
+      "first_seen": "2026-07-07T12:24:08.442312+00:00"
+    },
+    {
+      "id": "7293",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Δυτική Μακεδονία",
+      "region": "Περιφέρεια Δυτικής Μακεδονίας",
+      "beneficiaries": "",
+      "submission_start": "2026-06-30",
+      "submission_end": "2026-08-08",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7293&action=add",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442373+00:00",
+      "first_seen": "2026-07-07T12:24:08.442373+00:00"
+    },
+    {
+      "id": "7292",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Αλιεία, Υδατοκαλλιέργεια και Θάλασσα​",
+      "region": "Όλη η Ελλάδα",
+      "beneficiaries": "",
+      "submission_start": "2026-06-25",
+      "submission_end": "2026-07-27",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7292&action=add",
+      "kad_tags": [
+        "62",
+        "01"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442424+00:00",
+      "first_seen": "2026-07-07T12:24:08.442424+00:00"
+    },
+    {
+      "id": "7291",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Αλιεία, Υδατοκαλλιέργεια και Θάλασσα​",
+      "region": "Όλη η Ελλάδα",
+      "beneficiaries": "",
+      "submission_start": "2026-06-30",
+      "submission_end": "2026-09-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7291&action=add",
+      "kad_tags": [
+        "62",
+        "01"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442495+00:00",
+      "first_seen": "2026-07-07T12:24:08.442495+00:00"
+    },
+    {
+      "id": "7290",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Πελοπόννησος",
+      "region": "Περιφέρεια Πελοποννήσου",
+      "beneficiaries": "",
+      "submission_start": "2026-07-01",
+      "submission_end": "2026-08-31",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7290&action=add",
+      "kad_tags": [
+        "62",
+        "85"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442552+00:00",
+      "first_seen": "2026-07-07T12:24:08.442552+00:00"
+    },
+    {
+      "id": "7289",
+      "title": "Προσθήκη στη λίστα 'Τα προγράμματά μου'",
+      "status": "Ενεργό",
+      "operational_programme": "Πελοπόννησος",
+      "region": "Περιφέρεια Πελοποννήσου",
+      "beneficiaries": "",
+      "submission_start": "2026-06-29",
+      "submission_end": "2026-10-30",
+      "url": "https://www.espa.gr/el/Pages/ProclamationsBasketConfirm.aspx?item=7289&action=add",
+      "kad_tags": [
+        "62",
+        "71"
+      ],
+      "source": "espa.gr",
+      "fetched_at": "2026-07-07T12:24:08.442601+00:00",
+      "first_seen": "2026-07-07T12:24:08.442601+00:00"
     }
   ]
 }
