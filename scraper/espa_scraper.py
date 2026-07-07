@@ -85,51 +85,49 @@ def guess_kad_tags(text: str) -> list[str]:
 def extract_items_from_page(page) -> list[dict]:
     """Παίρνει τα προγράμματα από την τρέχουσα σελίδα του Proclamations.
 
-    Δοκιμάζει πολλαπλά selectors γιατί η δομή SharePoint σελίδων ποικίλλει."""
+    Σημαντικό: κάθε κάρτα προγράμματος έχει πολλά links με item= (τίτλος,
+    "Περισσότερα...", "Προσθήκη στη λίστα"). Κρατάμε το link με τον μακρύτερο
+    τίτλο για κάθε item ID — αυτό είναι πάντα ο πραγματικός τίτλος."""
     return page.evaluate(
         """
         () => {
-          const items = [];
-          const seen = new Set();
+          const byItemId = {}; // itemId -> {title, blockText, moreHref}
 
-          // Στρατηγική 1: Links προς σελίδες πρόσκλησης (τυπικά έχουν item=NNNN στο URL).
           const proclamationLinks = Array.from(document.querySelectorAll('a[href*="item="]'));
           for (const link of proclamationLinks) {
             const title = link.textContent.trim();
             if (!title || title.length < 5) continue;
 
-            // Απόρριψε "Προσθήκη στη λίστα..." (add-to-favorites κουμπιά έχουν επίσης item= στο URL!)
-            // και άλλα γενικά UI elements
-            if (/^(προσθήκη|αφαίρεση|δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική|share|κοινοποίηση|print|εκτύπωση|save|αποθήκευση)/i.test(title)) continue;
-            // Απόρριψε elements με ρόλο κουμπιού
+            // Απόρριψε γνωστά UI elements
+            if (/^(προσθήκη|αφαίρεση|περισσότερα|δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική|share|κοινοποίηση|print|εκτύπωση|save|αποθήκευση)/i.test(title)) continue;
             const role = link.getAttribute('role') || '';
             if (role === 'button') continue;
-            // Απόρριψε links που έχουν εικόνα ως μοναδικό περιεχόμενο (τα favorite icons)
             if (link.querySelector('img') && !link.textContent.replace(/\\s/g, '').length) continue;
 
-            const itemId = (link.href.match(/item=(\\d+)/) || [])[1];
-            const dedupKey = itemId || title;
-            if (seen.has(dedupKey)) continue;
-            seen.add(dedupKey);
+            const itemMatch = link.href.match(/item=(\\d+)/);
+            if (!itemMatch) continue;
+            const itemId = itemMatch[1];
 
-            // Πάρε τον container που περιέχει τα μεταδεδομένα
-            let container = link;
-            for (let i = 0; i < 6; i++) {
-              if (!container.parentElement) break;
-              container = container.parentElement;
-              const txt = container.textContent || '';
-              if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα') ||
-                  txt.includes('Δικαιούχοι') || txt.includes('Περιοχή εφαρμογής')) break;
+            // Κράτησε αυτό αν είναι το πρώτο, ή αν έχει μακρύτερο τίτλο από αυτό που έχουμε
+            if (!byItemId[itemId] || title.length > byItemId[itemId].title.length) {
+              // Πάρε τον container που περιέχει τα μεταδεδομένα
+              let container = link;
+              for (let i = 0; i < 6; i++) {
+                if (!container.parentElement) break;
+                container = container.parentElement;
+                const txt = container.textContent || '';
+                if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα') ||
+                    txt.includes('Δικαιούχοι') || txt.includes('Περιοχή εφαρμογής')) break;
+              }
+              byItemId[itemId] = {
+                title,
+                blockText: container ? container.textContent : '',
+                moreHref: link.href || ''
+              };
             }
-
-            items.push({
-              title,
-              blockText: container ? container.textContent : '',
-              moreHref: link.href || ''
-            });
           }
 
-          return items;
+          return Object.values(byItemId);
         }
         """
     )
@@ -243,7 +241,7 @@ def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[
                 title_lower = title.lower()
                 if ("προσθήκη" in title_lower and "λίστα" in title_lower) or \
                    ("αφαίρεση" in title_lower and "λίστα" in title_lower) or \
-                   title_lower.startswith(("δείτε ", "read ", "edit ", "επεξεργασία", "share ", "print ")):
+                   title_lower.startswith(("περισσότερα", "δείτε ", "read ", "edit ", "επεξεργασία", "share ", "print ")):
                     invalid_removed += 1
                     continue
                 key = p.get("id") or p.get("title")
