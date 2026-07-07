@@ -238,9 +238,12 @@ def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[
         try:
             data = json.loads(existing_path.read_text(encoding="utf-8"))
             for p in data.get("programs", []):
-                title = p.get("title", "")
-                # Φίλτραρε λάθος τίτλους από παλιά bugs
-                if re.match(r"^(προσθήκη|αφαίρεση|δείτε|read|edit)", title, re.IGNORECASE):
+                title = p.get("title", "").strip()
+                # Φίλτραρε λάθος τίτλους από παλιά bugs (μπορεί να έχουν leading spaces, tonos κ.λπ.)
+                title_lower = title.lower()
+                if ("προσθήκη" in title_lower and "λίστα" in title_lower) or \
+                   ("αφαίρεση" in title_lower and "λίστα" in title_lower) or \
+                   title_lower.startswith(("δείτε ", "read ", "edit ", "επεξεργασία", "share ", "print ")):
                     invalid_removed += 1
                     continue
                 key = p.get("id") or p.get("title")
