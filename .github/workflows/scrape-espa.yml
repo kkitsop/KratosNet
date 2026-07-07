@@ -20,7 +20,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install deps
-        run: pip install -r scraper/requirements.txt
+        run: |
+          pip install -r scraper/requirements.txt
+          playwright install --with-deps chromium
 
       - name: Run scraper
         run: python scraper/espa_scraper.py --out data/programs.json --max-pages 29
