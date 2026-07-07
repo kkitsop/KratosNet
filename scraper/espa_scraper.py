@@ -93,18 +93,20 @@ def extract_items_from_page(page) -> list[dict]:
           const seen = new Set();
 
           // Στρατηγική 1: Links προς σελίδες πρόσκλησης (τυπικά έχουν item=NNNN στο URL).
-          // Αυτά είναι πάντα προγράμματα, οπότε τα κρατάμε ΟΛΑ (με deduplication).
           const proclamationLinks = Array.from(document.querySelectorAll('a[href*="item="]'));
           for (const link of proclamationLinks) {
             const title = link.textContent.trim();
-            // Ελάχιστο μήκος 5 (τα πραγματικά προγράμματα έχουν μακρύτερους τίτλους,
-            // αλλά αφήνουμε χώρο ώστε να μην κόψουμε κάτι από λάθος)
             if (!title || title.length < 5) continue;
-            // Αγνόησε γενικά UI κουμπιά
-            if (/^(δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική)$/i.test(title)) continue;
 
-            // Deduplication με βάση URL (όχι title, γιατί το ίδιο πρόγραμμα μπορεί
-            // να έχει πολλαπλά links με διαφορετικό text)
+            // Απόρριψε "Προσθήκη στη λίστα..." (add-to-favorites κουμπιά έχουν επίσης item= στο URL!)
+            // και άλλα γενικά UI elements
+            if (/^(προσθήκη|αφαίρεση|δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική|share|κοινοποίηση|print|εκτύπωση|save|αποθήκευση)/i.test(title)) continue;
+            // Απόρριψε elements με ρόλο κουμπιού
+            const role = link.getAttribute('role') || '';
+            if (role === 'button') continue;
+            // Απόρριψε links που έχουν εικόνα ως μοναδικό περιεχόμενο (τα favorite icons)
+            if (link.querySelector('img') && !link.textContent.replace(/\\s/g, '').length) continue;
+
             const itemId = (link.href.match(/item=(\\d+)/) || [])[1];
             const dedupKey = itemId || title;
             if (seen.has(dedupKey)) continue;
@@ -226,17 +228,29 @@ def scrape_page_one() -> list[dict]:
 
 def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[list[dict], int, int]:
     """Συγχωνεύει τα νέα προγράμματα με τα υπάρχοντα του data/programs.json.
-    Επιστρέφει (merged_list, added, updated)."""
+    Επιστρέφει (merged_list, added, updated).
+
+    ΣΗΜΑΝΤΙΚΟ: Καθαρίζει εγγραφές που έχουν λάθος τίτλους (π.χ. "Προσθήκη στη λίστα...")
+    από παλαιότερες buggy εκτελέσεις του scraper."""
     existing: dict[str, dict] = {}
+    invalid_removed = 0
     if existing_path.exists():
         try:
             data = json.loads(existing_path.read_text(encoding="utf-8"))
             for p in data.get("programs", []):
+                title = p.get("title", "")
+                # Φίλτραρε λάθος τίτλους από παλιά bugs
+                if re.match(r"^(προσθήκη|αφαίρεση|δείτε|read|edit)", title, re.IGNORECASE):
+                    invalid_removed += 1
+                    continue
                 key = p.get("id") or p.get("title")
                 if key:
                     existing[key] = p
         except Exception as e:
             print(f"[warn] Δεν κατάφερα να διαβάσω υπάρχον programs.json: {e}", file=sys.stderr)
+
+    if invalid_removed > 0:
+        print(f"[cleanup] Αφαιρέθηκαν {invalid_removed} λάθος εγγραφές από παλιά scrapes", file=sys.stderr)
 
     added = 0
     updated = 0
@@ -245,14 +259,11 @@ def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[
         if not key:
             continue
         if key in existing:
-            # Ενημέρωση: κρατάμε τα δεδομένα του νέου (πιο πρόσφατα), αλλά διατηρούμε
-            # το first_seen από το υπάρχον αν υπάρχει
             first_seen = existing[key].get("first_seen") or existing[key].get("fetched_at")
             p["first_seen"] = first_seen
             existing[key] = p
             updated += 1
         else:
-            # Νέο πρόγραμμα
             p["first_seen"] = p["fetched_at"]
             existing[key] = p
             added += 1
