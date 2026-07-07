@@ -615,8 +615,9 @@ const safeStorage = {
 const GOV_LINKS = {
   "cat-tax": [
     {code:"TN", name:"TAXISnet", desc:"Είσοδος myAADE", url:"https://www1.aade.gr/saadeapps2/tls-portal/"},
-    {code:"AD", name:"myAADE", desc:"Φορολογικές δηλώσεις", url:"https://www.aade.gr/myaade"},
-    {code:"MD", name:"myDATA", desc:"Ηλεκτρονικά βιβλία", url:"https://mydata.aade.gr/"},
+    {code:"AD", name:"ΑΑΔΕ", desc:"Κεντρική πύλη", url:"https://www.aade.gr/"},
+    {code:"MA", name:"myAADE", desc:"Φορολογικές δηλώσεις", url:"https://www1.aade.gr/aadeapps3/myaade/#!/"},
+    {code:"MD", name:"myDATA", desc:"Ηλεκτρονικά βιβλία", url:"https://www.aade.gr/en/mydata"},
     {code:"eΠ", name:"e-Παράβολο", desc:"Έκδοση/πληρωμή παραβόλου", url:"https://www.gov.gr/ipiresies/polites-kai-kathemerinoteta/pleromes-kai-parabola/elektroniko-parabolo-e-parabolo"},
   ],
   "cat-work": [
@@ -626,9 +627,9 @@ const GOV_LINKS = {
   ],
   "cat-id": [
     {code:"gr", name:"gov.gr", desc:"Κεντρική πύλη", url:"https://www.gov.gr/"},
-    {code:"W", name:"gov.gr Wallet", desc:"Ψηφιακή ταυτότητα/δίπλωμα", url:"https://wallet.gov.gr/"},
-    {code:"S", name:"gov.gr Sign", desc:"Ψηφιακή υπογραφή", url:"https://sign.gov.gr/"},
-    {code:"ΚΕ", name:"ΚΕΠ", desc:"Ραντεβού/αιτήματα", url:"https://www.gov.gr/en/organosis/kentro-exupiretisis-politon"},
+    {code:"W", name:"gov.gr Wallet", desc:"Ψηφιακή ταυτότητα/δίπλωμα", url:"https://wallet.gov.gr/", smartApp:"wallet"},
+    {code:"S", name:"Ψηφιακά έγγραφα", desc:"gov.gr Sign / έκδοση εγγράφων", url:"https://www.gov.gr/ipiresies/polites-kai-kathemerinoteta/psephiaka-eggrapha-gov-gr"},
+    {code:"ΚΕ", name:"myKEPlive", desc:"Ραντεβού/τηλεδιάσκεψη με ΚΕΠ", url:"https://www.gsis.gr/polites-epiheiriseis/stoiheia-politon-kai-ex-apostaseos-exypiretisi/mykeplive"},
   ],
   "cat-health": [
     {code:"MH", name:"myHealth", desc:"Ιατρικός φάκελος ασθενούς", url:"https://myhealth.gov.gr/"},
@@ -637,7 +638,8 @@ const GOV_LINKS = {
   ],
   "cat-biz": [
     {code:"ΓΕ", name:"ΓΕΜΗ", desc:"Μητρώο επιχειρήσεων", url:"https://www.businessportal.gr/"},
-    {code:"ΚΑΔ", name:"Έλεγχος ΚΑΔ", desc:"Επίσημη αναζήτηση ΚΑΔ", url:"https://eyms.businessportal.gr/kad/public"},
+    {code:"ΔΗ", name:"ΓΕΜΗ Δημοσιότητα", desc:"Υπηρεσίες δημοσιότητας", url:"https://publicity.businessportal.gr/"},
+    {code:"ΚΑΔ", name:"Έλεγχος ΚΑΔ", desc:"Αναζήτηση επιλέξιμων ΚΑΔ (ΓΕΜΗ)", url:"https://services.businessportal.gr/publicKadSearch"},
     {code:"€", name:"ΕΣΠΑ / ependyseis.gr", desc:"Επενδυτικά προγράμματα", url:"https://www.ependyseis.gr/"},
     {code:"ΠΡ", name:"espa.gr Προσκλήσεις", desc:"Ενεργές προσκλήσεις", url:"https://www.espa.gr/el/Pages/Proclamations.aspx"},
   ],
@@ -645,7 +647,7 @@ const GOV_LINKS = {
     {code:"§", name:"Solon.gov.gr", desc:"Δικαστικές υποθέσεις", url:"https://www.solon.gov.gr/"},
     {code:"ΔΓ", name:"Διαύγεια", desc:"Δημόσιες αποφάσεις", url:"https://diavgeia.gov.gr/", inApp:true},
     {code:"ΚΗ", name:"ΚΗΜΔΗΣ", desc:"Δημόσιες συμβάσεις", url:"http://www.eprocurement.gov.gr/"},
-    {code:"ΑΓ", name:"Δήμος Αγρινίου", desc:"Επίσημη σελίδα", url:"https://www.agrinio.gr/", inApp:true},
+    {code:"📍", name:"Ο δήμος μου", desc:"Εύρεση επίσημης σελίδας δήμου με GPS", url:"#find-my-municipality", smartAction:"findMunicipality"},
   ],
   "cat-cars": [
     {code:"MA", name:"MyAuto", desc:"Στοιχεία οχήματος, ΚΤΕΟ, τέλη", url:"https://www.gov.gr/upourgeia/upourgeio-psephiakes-diakuberneses/psephiakes-diakuberneses/myauto"},
@@ -664,7 +666,11 @@ function renderHub(){
       const favicon = domain
         ? `https://www.google.com/s2/favicons?sz=64&domain=${domain}`
         : "";
-      const linkAttrs = l.inApp
+      const linkAttrs = l.smartAction
+        ? `href="#" data-smart-action="${l.smartAction}"`
+        : l.smartApp
+        ? `href="${l.url}" data-smart-app="${l.smartApp}"`
+        : l.inApp
         ? `href="${l.url}" data-inapp="1" data-name="${l.name.replace(/"/g,'')}"`
         : `href="${l.url}" target="_blank" rel="noopener"`;
       return `
@@ -689,7 +695,7 @@ function renderHub(){
 // GOV_LINKS, ενημερώνεται αυτόματα και εδώ.
 const POPULAR_NAMES = [
   "TAXISnet", "myAADE", "gov.gr Wallet", "ΕΦΚΑ",
-  "myHealth", "ΚΕΠ", "MyAuto", "Διαύγεια"
+  "myHealth", "myKEPlive", "MyAuto", "Διαύγεια"
 ];
 
 function findLink(name){
@@ -711,7 +717,11 @@ function renderPopular(){
     const favicon = domain
       ? `https://www.google.com/s2/favicons?sz=64&domain=${domain}`
       : "";
-    const linkAttrs = l.inApp
+    const linkAttrs = l.smartAction
+      ? `href="#" data-smart-action="${l.smartAction}"`
+      : l.smartApp
+      ? `href="${l.url}" data-smart-app="${l.smartApp}"`
+      : l.inApp
       ? `href="${l.url}" data-inapp="1" data-name="${l.name.replace(/"/g,'')}"`
       : `href="${l.url}" target="_blank" rel="noopener"`;
     return `
@@ -758,11 +768,91 @@ document.getElementById("helpClose").addEventListener("click", () => {
 
 // Delegate clicks anywhere in the app for elements marked data-inapp
 document.addEventListener("click", (e) => {
+  // Smart action handlers (auto-detect municipality, wallet app redirect)
+  const smart = e.target.closest("a[data-smart-action]");
+  if(smart){
+    if(e.button !== 0 || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleSmartAction(smart.dataset.smartAction);
+    return false;
+  }
+  const smartApp = e.target.closest("a[data-smart-app]");
+  if(smartApp){
+    if(e.button !== 0 || e.ctrlKey || e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleSmartApp(smartApp.dataset.smartApp, smartApp.href);
+    return false;
+  }
   const a = e.target.closest("a[data-inapp]");
   if(!a) return;
+  // Άφησε να δουλέψουν middle-click/Ctrl+click για "open in new tab"
+  if(e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
   e.preventDefault();
+  e.stopPropagation();
   openInApp(a.href, a.dataset.name || a.textContent.trim());
-});
+  return false;
+}, true); // capture phase — πιάσε το ΠΡΙΝ το default browser behavior
+
+// ===================== SMART APP REDIRECT (Wallet κ.λπ.) =====================
+function handleSmartApp(appId, webUrl){
+  const ua = navigator.userAgent || "";
+  const isAndroid = /android/i.test(ua);
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+
+  if(appId === "wallet"){
+    if(isAndroid){
+      // Δοκίμασε deep-link → αν αποτύχει σε 1.5", στείλε στο Play Store
+      window.location.href = "govgrapp://";
+      setTimeout(() => {
+        window.location.href = "https://play.google.com/store/apps/details?id=gr.gov.wallet";
+      }, 1500);
+    } else if(isIOS){
+      window.location.href = "govgrapp://";
+      setTimeout(() => {
+        window.location.href = "https://apps.apple.com/gr/app/gov-gr-wallet/id6444894195";
+      }, 1500);
+    } else {
+      // Desktop → άνοιξε web version
+      window.open(webUrl, "_blank");
+    }
+  }
+}
+
+// ===================== SMART ACTIONS (auto-detect δήμος κ.λπ.) =====================
+async function handleSmartAction(action){
+  if(action === "findMunicipality"){
+    if(!navigator.geolocation){
+      alert("Ο browser σου δεν υποστηρίζει εντοπισμό τοποθεσίας.");
+      return;
+    }
+    try{
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject,
+          {enableHighAccuracy: false, timeout: 8000, maximumAge: 300000});
+      });
+      const {latitude, longitude} = pos.coords;
+      // Αναγνώριση δήμου από Nominatim
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&accept-language=el`,
+        {headers: {"User-Agent": "kratosNet/1.0"}}
+      );
+      const data = await res.json();
+      const addr = data.address || {};
+      const municipality = addr.municipality || addr.county || addr.city || addr.town || "";
+      if(!municipality){
+        alert("Δεν κατάφερα να εντοπίσω τον δήμο σου. Ψάξε τον χειροκίνητα στο Google.");
+        return;
+      }
+      // Στείλε τον χρήστη σε Google search για την επίσημη σελίδα του δήμου
+      const query = encodeURIComponent(`επίσημη σελίδα δήμου ${municipality}`);
+      window.open(`https://www.google.com/search?q=${query}`, "_blank");
+    }catch(e){
+      alert("Πρόβλημα εντοπισμού τοποθεσίας. Έλεγξε τις άδειες τοποθεσίας του browser.");
+    }
+  }
+}
 
 // ===================== THEME TOGGLE =====================
 (function initTheme(){
@@ -895,30 +985,43 @@ async function loadNearby(cat){
     return;
   }
 
-  // pharmacy / hospital: no public duty-roster API exists — point to the right
-  // official source for the user's own city instead of guessing.
+  // pharmacy / hospital: δεν υπάρχει δημόσιο API — αλλά για φαρμακεία υπάρχει
+  // το vrisko.gr που δέχεται deep-link ανά πόλη.
   el.innerHTML = `<div class="nearby-status">Αναγνώριση περιοχής…</div>`;
   try{
     const city = await reverseGeocodeCity(coords.lat, coords.lon);
     const label = cat === "pharmacy" ? "εφημερεύον φαρμακείο" : "εφημερεύον νοσοκομείο";
     const searchQuery = `${label} ${city} σήμερα`;
+    // Vrisko.gr URL slug για την πόλη (με transliteration Ελληνικά → Λατινικά)
+    const citySlug = greekToLatinSlug(city);
     const officialLinks = cat === "pharmacy"
-      ? `<a class="navbtn" target="_blank" rel="noopener" href="https://farmakeia.gr/">farmakeia.gr</a>
-         <a class="navbtn" target="_blank" rel="noopener" href="https://www.vrisko.gr/efimeries-farmakeion">vrisko.gr</a>`
-      : `<a class="navbtn" target="_blank" rel="noopener" href="https://www.moh.gov.gr/articles/citizen/efhmeries-nosokomeiwn/">Υπ. Υγείας</a>
+      ? `<a class="navbtn" style="background:var(--aegean);color:#fff;border-color:var(--aegean);font-weight:600" target="_blank" rel="noopener" href="https://www.vrisko.gr/efimeries-farmakeion/${citySlug}">📍 vrisko.gr για ${city}</a>
+         <a class="navbtn" target="_blank" rel="noopener" href="https://farmakeia.gr/">farmakeia.gr</a>`
+      : `<a class="navbtn" style="background:var(--aegean);color:#fff;border-color:var(--aegean);font-weight:600" target="_blank" rel="noopener" href="https://www.moh.gov.gr/articles/citizen/efhmeries-nosokomeiwn/">Υπ. Υγείας</a>
          <a class="navbtn" target="_blank" rel="noopener" href="https://www.11888.gr/efhmereuonta-nosokomeia/">11888.gr</a>`;
     el.innerHTML = `
       <div class="nearby-item">
         <h4>${cat === "pharmacy" ? "Εφημερεύον φαρμακείο" : "Εφημερεύον νοσοκομείο"} — ${city}</h4>
-        <div class="naddr">Δεν υπάρχει δημόσιο API για το πρόγραμμα εφημερίας, οπότε σε πάμε
-          κατευθείαν στην αναζήτηση για την περιοχή σου.</div>
-        <div class="navbtns">${navSearchLinks(searchQuery)}</div>
-        <div class="navbtns" style="margin-top:4px">${officialLinks}</div>
+        <div class="naddr">${cat === "pharmacy" ? "Άμεση αναζήτηση στο vrisko.gr για την πόλη σου, ή γενική αναζήτηση παρακάτω." : "Δεν υπάρχει δημόσιο API για το πρόγραμμα εφημερίας, οπότε σε πάμε στις επίσημες πηγές."}</div>
+        <div class="navbtns">${officialLinks}</div>
+        <div class="navbtns" style="margin-top:6px">${navSearchLinks(searchQuery)}</div>
       </div>
     `;
   }catch(e){
     el.innerHTML = `<div class="nearby-status">Δεν κατέστη δυνατή η αναγνώριση της περιοχής σου. Δοκίμασε ξανά.</div>`;
   }
+}
+
+// Ελληνικά → Λατινικά (approximate) για vrisko.gr slugs
+function greekToLatinSlug(text){
+  const map = {
+    'α':'a','β':'v','γ':'g','δ':'d','ε':'e','ζ':'z','η':'i','θ':'th','ι':'i',
+    'κ':'k','λ':'l','μ':'m','ν':'n','ξ':'x','ο':'o','π':'p','ρ':'r','σ':'s',
+    'ς':'s','τ':'t','υ':'y','φ':'f','χ':'ch','ψ':'ps','ω':'o',
+    'ά':'a','έ':'e','ή':'i','ί':'i','ό':'o','ύ':'y','ώ':'o','ϊ':'i','ϋ':'y','ΐ':'i','ΰ':'y',
+    ' ':'-'
+  };
+  return text.toLowerCase().split('').map(c => map[c] || c).join('').replace(/[^a-z0-9\-]/g, '');
 }
 
 document.querySelectorAll(".nearby-cat-btn").forEach(btn => {
