@@ -224,6 +224,14 @@ def scrape() -> list[dict]:
                 root = ET.fromstring(xml_data)
             except ET.ParseError as e:
                 print(f"[warn] Σφάλμα XML parsing: {e}", file=sys.stderr)
+                # Debug: τύπωσε τις πρώτες γραμμές για να δούμε τι λαμβάνουμε
+                lines = xml_data.split("\n")
+                print(f"[debug] Πρώτες 3 γραμμές του response:", file=sys.stderr)
+                for i, line in enumerate(lines[:3]):
+                    print(f"  {i+1}: {line[:200]}", file=sys.stderr)
+                print(f"[debug] Γραμμή 63-65 (κοντά στο σφάλμα):", file=sys.stderr)
+                for i in range(62, min(66, len(lines))):
+                    print(f"  {i+1}: {lines[i][:200]}", file=sys.stderr)
                 continue
 
             items_xml = root.findall(".//item")
