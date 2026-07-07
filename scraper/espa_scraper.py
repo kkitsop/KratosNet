@@ -92,42 +92,34 @@ def extract_items_from_page(page) -> list[dict]:
           const items = [];
           const seen = new Set();
 
-          // Στρατηγική 1: Βρες όλα τα links προς σελίδες πρόσκλησης (τυπικά έχουν item=NNNN στο URL)
+          // Στρατηγική 1: Links προς σελίδες πρόσκλησης (τυπικά έχουν item=NNNN στο URL).
+          // Αυτά είναι πάντα προγράμματα, οπότε τα κρατάμε ΟΛΑ (με deduplication).
           const proclamationLinks = Array.from(document.querySelectorAll('a[href*="item="]'));
           for (const link of proclamationLinks) {
             const title = link.textContent.trim();
-            if (!title || title.length < 15 || seen.has(title)) continue;
-            // Απόρριψε γενικούς συνδέσμους (π.χ. "Δείτε περισσότερα")
-            if (/^(δείτε|see|read|more|διαβάστε|περισσότερ|edit|επεξεργασία)/i.test(title)) continue;
-            seen.add(title);
+            // Ελάχιστο μήκος 5 (τα πραγματικά προγράμματα έχουν μακρύτερους τίτλους,
+            // αλλά αφήνουμε χώρο ώστε να μην κόψουμε κάτι από λάθος)
+            if (!title || title.length < 5) continue;
+            // Αγνόησε γενικά UI κουμπιά
+            if (/^(δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική)$/i.test(title)) continue;
 
-            // Πάρε ό,τι μοιάζει με container (μέχρι 5 επίπεδα πίσω)
+            // Deduplication με βάση URL (όχι title, γιατί το ίδιο πρόγραμμα μπορεί
+            // να έχει πολλαπλά links με διαφορετικό text)
+            const itemId = (link.href.match(/item=(\\d+)/) || [])[1];
+            const dedupKey = itemId || title;
+            if (seen.has(dedupKey)) continue;
+            seen.add(dedupKey);
+
+            // Πάρε τον container που περιέχει τα μεταδεδομένα
             let container = link;
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 6; i++) {
               if (!container.parentElement) break;
               container = container.parentElement;
               const txt = container.textContent || '';
-              // Σταμάτησε όταν βρεις container που έχει τα μεταδεδομένα
-              if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα')) break;
+              if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα') ||
+                  txt.includes('Δικαιούχοι') || txt.includes('Περιοχή εφαρμογής')) break;
             }
 
-            items.push({
-              title,
-              blockText: container ? container.textContent : '',
-              moreHref: link.href || ''
-            });
-          }
-
-          if (items.length > 0) return items;
-
-          // Στρατηγική 2 fallback: h3/h4 links (η παλιά προσέγγιση)
-          const headers = document.querySelectorAll('h3 a, h4 a');
-          for (const link of headers) {
-            const title = link.textContent.trim();
-            if (!title || title.length < 10 || seen.has(title)) continue;
-            seen.add(title);
-            let container = link.parentElement;
-            for (let i = 0; i < 5 && container; i++) container = container.parentElement;
             items.push({
               title,
               blockText: container ? container.textContent : '',
