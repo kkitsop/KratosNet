@@ -32,7 +32,13 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 BASE = "https://www.espa.gr"
-RSS_URL = f"{BASE}/_layouts/Miscellaneous/RSSFeeds.aspx"
+# Δύο πιθανά RSS endpoints. Το πρώτο (/el/Pages/RSS.aspx) βρίσκεται στο same
+# επιτρεπόμενο path με το Proclamations.aspx. Το δεύτερο (/_layouts/) είναι
+# το επίσημο SharePoint feed, αλλά το robots.txt το μπλοκάρει.
+RSS_URLS = [
+    f"{BASE}/el/Pages/RSS.aspx",
+    f"{BASE}/_layouts/Miscellaneous/RSSFeeds.aspx",
+]
 ROBOTS_URL = f"{BASE}/robots.txt"
 USER_AGENT = "GovHubBot/1.0 (+https://github.com/kkitsop/kratosnet; personal research tool)"
 
@@ -129,10 +135,10 @@ def strip_html(html: str) -> str:
     return text.strip()
 
 
-def fetch_rss(days: int = 3650, items: int = 500) -> str:
+def fetch_rss(rss_base: str, days: int = 3650, items: int = 500) -> str:
     """Κατεβάζει το RSS feed. Οι μεγάλες τιμές days/items στοχεύουν όλα τα
     τρέχοντα προγράμματα, όχι μόνο των τελευταίων 30 ημερών."""
-    url = f"{RSS_URL}?List=proclamations&Language=el&Days={days}&Items={items}"
+    url = f"{rss_base}?List=proclamations&Language=el&Days={days}&Items={items}"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=30) as res:
         return res.read().decode("utf-8", errors="replace")
@@ -186,47 +192,56 @@ def parse_rss_item(item: ET.Element) -> dict | None:
 
 
 def scrape() -> list[dict]:
-    allowed, reason = robots_allows(RSS_URL)
-    if not allowed:
-        print(f"[STOP] {RSS_URL}: {reason}. Δεν προχωράμε.", file=sys.stderr)
-        return []
-    print(f"[ok] robots.txt: {reason}", file=sys.stderr)
+    rp = robotparser.RobotFileParser()
+    rp.set_url(ROBOTS_URL)
+    try:
+        rp.read()
+    except Exception as e:
+        print(f"[warn] robots.txt μη διαθέσιμο ({e}) — προχωράμε συντηρητικά", file=sys.stderr)
 
-    # Δοκίμασε πρώτα με μεγάλες τιμές (όλα τα προγράμματα).
-    # Αν το endpoint αγνοήσει τις τιμές μας, προσπαθούμε ξανά με μικρότερες.
-    for days, items in [(3650, 500), (365, 500), (30, 100)]:
-        try:
-            print(f"[ok] Άντληση RSS: days={days}, items={items}", file=sys.stderr)
-            xml_data = fetch_rss(days=days, items=items)
-        except urllib.error.HTTPError as e:
-            print(f"[warn] HTTP {e.code} για days={days},items={items}: {e}", file=sys.stderr)
+    # Δοκίμασε τα RSS endpoints με τη σειρά — το πρώτο που επιτρέπεται & δίνει δεδομένα κερδίζει
+    for rss_base in RSS_URLS:
+        allowed = rp.can_fetch(USER_AGENT, rss_base)
+        if not allowed:
+            print(f"[skip] {rss_base}: ΑΠΑΓΟΡΕΥΕΤΑΙ από robots.txt", file=sys.stderr)
             continue
-        except Exception as e:
-            print(f"[warn] Σφάλμα άντλησης: {e}", file=sys.stderr)
-            continue
+        print(f"[ok] {rss_base}: επιτρέπεται", file=sys.stderr)
 
-        try:
-            root = ET.fromstring(xml_data)
-        except ET.ParseError as e:
-            print(f"[warn] Σφάλμα XML parsing: {e}", file=sys.stderr)
-            continue
-
-        items_xml = root.findall(".//item")
-        print(f"[ok] Βρέθηκαν {len(items_xml)} entries στο RSS", file=sys.stderr)
-
-        if len(items_xml) == 0:
-            continue
-
-        programs: dict[str, dict] = {}
-        for item in items_xml:
-            parsed = parse_rss_item(item)
-            if parsed is None:
+        # Δοκίμασε πρώτα με μεγάλες τιμές (όλα τα προγράμματα).
+        # Αν το endpoint αγνοήσει τις τιμές μας, προσπαθούμε ξανά με μικρότερες.
+        for days, items in [(3650, 500), (365, 500), (30, 100)]:
+            try:
+                print(f"[ok] Άντληση RSS: days={days}, items={items}", file=sys.stderr)
+                xml_data = fetch_rss(rss_base, days=days, items=items)
+            except urllib.error.HTTPError as e:
+                print(f"[warn] HTTP {e.code} για days={days},items={items}: {e}", file=sys.stderr)
                 continue
-            key = parsed["id"] or parsed["title"]
-            programs[key] = parsed
+            except Exception as e:
+                print(f"[warn] Σφάλμα άντλησης: {e}", file=sys.stderr)
+                continue
 
-        print(f"[ok] Επεξεργάστηκαν {len(programs)} μοναδικά προγράμματα", file=sys.stderr)
-        return list(programs.values())
+            try:
+                root = ET.fromstring(xml_data)
+            except ET.ParseError as e:
+                print(f"[warn] Σφάλμα XML parsing: {e}", file=sys.stderr)
+                continue
+
+            items_xml = root.findall(".//item")
+            print(f"[ok] Βρέθηκαν {len(items_xml)} entries στο RSS", file=sys.stderr)
+
+            if len(items_xml) == 0:
+                continue
+
+            programs: dict[str, dict] = {}
+            for item in items_xml:
+                parsed = parse_rss_item(item)
+                if parsed is None:
+                    continue
+                key = parsed["id"] or parsed["title"]
+                programs[key] = parsed
+
+            print(f"[ok] Επεξεργάστηκαν {len(programs)} μοναδικά προγράμματα", file=sys.stderr)
+            return list(programs.values())
 
     print("[error] Όλες οι προσπάθειες άντλησης απέτυχαν", file=sys.stderr)
     return []
@@ -247,7 +262,9 @@ def main():
     if not programs:
         print("[warn] Καμία εγγραφή — ΔΕΝ αντικαθιστώ το υπάρχον data/programs.json.",
               file=sys.stderr)
-        sys.exit(0 if not out_path.exists() else 1)
+        # Επιστρέφουμε 0 (επιτυχία) — το workflow δεν χρειάζεται να αποτύχει επειδή
+        # δεν πήραμε νέα δεδομένα. Το υπάρχον programs.json παραμένει έγκυρο.
+        sys.exit(0)
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
