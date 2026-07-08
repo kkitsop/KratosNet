@@ -128,8 +128,7 @@ def extract_items_from_page(page) -> list[dict]:
           }
 
           // Safety net: πέτα οτιδήποτε έχει καταλήξει με τίτλο που ξεκινάει με "Περισσότερα..." κ.λπ.
-          // (μπορεί να ξέφυγε αν όλα τα links του item ήταν UI elements)
-          const finalPattern = /^(προσθήκη|αφαίρεση|περισσότερα|δείτε\s|read\s|edit\s|share\s|print\s|save\s)/i;
+          const finalPattern = /^(προσθήκη|αφαίρεση|περισσότερα|δείτε |read |edit |share |print |save )/i;
           return Object.values(byItemId).filter(x => !finalPattern.test(x.title));
         }
         """
@@ -152,11 +151,14 @@ def scrape_page_one() -> list[dict]:
         # Περιμένουμε να φορτώσει η λίστα προγραμμάτων
         try:
             page.wait_for_function(
-                "() => document.querySelectorAll('a[href*=\"item=\"]').length > 3 || document.querySelectorAll('h3 a, h4 a').length > 3",
-                timeout=15000
+                "() => document.querySelectorAll('a[href*=\"ProclamationsFS.aspx?item=\"]').length > 3",
+                timeout=25000
             )
+            print("[ok] Λίστα προγραμμάτων φορτώθηκε", file=sys.stderr)
         except Exception:
-            print("[warn] Δεν φόρτωσε λίστα προγραμμάτων εντός 15s — προχωράμε πάντως", file=sys.stderr)
+            print("[warn] Δεν φόρτωσε λίστα προγραμμάτων εντός 25s — προχωράμε πάντως", file=sys.stderr)
+        # Δώσε επιπλέον χρόνο για ολοκλήρωση rendering
+        page.wait_for_timeout(2000)
 
         items = extract_items_from_page(page)
         print(f"[ok] Βρέθηκαν {len(items)} προγράμματα στη σελίδα 1", file=sys.stderr)
