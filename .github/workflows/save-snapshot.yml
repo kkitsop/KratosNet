@@ -1,0 +1,41 @@
+name: Save espa.gr snapshot
+
+on:
+  workflow_dispatch:  # Χειροκίνητη εκκίνηση μόνο
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright==1.56.0
+          playwright install --with-deps chromium
+
+      - name: Save espa.gr snapshot
+        run: |
+          python3 << 'EOF'
+          from playwright.sync_api import sync_playwright
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(user_agent="Mozilla/5.0 (compatible; GovHubBot/1.0)")
+              page.goto("https://www.espa.gr/el/Pages/Proclamations.aspx", wait_until="networkidle", timeout=30000)
+              page.wait_for_timeout(5000)  # extra time for JS rendering
+              html = page.content()
+              with open("espa_snapshot.html", "w", encoding="utf-8") as f:
+                  f.write(html)
+              print(f"Saved {len(html)} bytes")
+              browser.close()
+          EOF
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: espa-snapshot
+          path: espa_snapshot.html
+          retention-days: 7
