@@ -127,7 +127,10 @@ def extract_items_from_page(page) -> list[dict]:
             }
           }
 
-          return Object.values(byItemId);
+          // Safety net: πέτα οτιδήποτε έχει καταλήξει με τίτλο που ξεκινάει με "Περισσότερα..." κ.λπ.
+          // (μπορεί να ξέφυγε αν όλα τα links του item ήταν UI elements)
+          const finalPattern = /^(προσθήκη|αφαίρεση|περισσότερα|δείτε\s|read\s|edit\s|share\s|print\s|save\s)/i;
+          return Object.values(byItemId).filter(x => !finalPattern.test(x.title));
         }
         """
     )
