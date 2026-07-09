@@ -258,6 +258,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=str, default="../data/programs.json")
     ap.add_argument("--max-pages", type=int, default=1, help="LEGACY (αγνοείται στη v5)")
+    ap.add_argument("--reset", action="store_true",
+                    help="Αγνόησε το υπάρχον programs.json και ξεκίνα από την αρχή (χρήσιμο για cleanup μετά από buggy runs)")
     ap.add_argument("--from-html", type=str, default=None,
                     help="Test mode: parse ένα τοπικό HTML αρχείο (skip Playwright/network)")
     args = ap.parse_args()
@@ -277,7 +279,16 @@ def main():
         print("[warn] Καμία εγγραφή — ΔΕΝ αλλάζω το υπάρχον programs.json", file=sys.stderr)
         sys.exit(0)
 
-    merged, added, updated = merge_with_existing(new_programs, out_path)
+    if args.reset:
+        print("[reset] Αγνοώ υπάρχον programs.json — καθαρή αρχή", file=sys.stderr)
+        # Πρόσθεσε first_seen στα νέα εφόσον δεν υπάρχει προηγούμενο
+        for p in new_programs:
+            p["first_seen"] = p["fetched_at"]
+        merged = new_programs
+        added = len(merged)
+        updated = 0
+    else:
+        merged, added, updated = merge_with_existing(new_programs, out_path)
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
