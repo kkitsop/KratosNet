@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
 """
-ESPA / Χρηματοδοτικά Προγράμματα Scraper — v4 (Accumulative)
-================================================================
-Το espa.gr έχει σκόπιμα μπλοκάρει τα RSS feeds του από programmatic access
-(εγκεκριμένο endpoint επιστρέφει HTML, το πραγματικό RSS απαγορεύεται από
-robots.txt). Το SharePoint pagination επίσης δεν αυτοματοποιείται αξιόπιστα.
+ESPA / Χρηματοδοτικά Προγράμματα Scraper — v5 (h3-based, tested)
+====================================================================
+Η espa.gr έχει ξεκάθαρη δομή που ΕΠΙΒΕΒΑΙΩΘΗΚΕ με snapshot:
+  - Οι πραγματικοί τίτλοι προσκλήσεων είναι σε <h3> tags
+  - Οι σελίδες λεπτομερειών είναι στο /el/Pages/ProclamationsFS.aspx?item=NNNN
+  - Οι πληροφορίες κάθε πρόσκλησης είναι στο section μεταξύ διαδοχικών <h3>
 
-**Αντί να παλέψουμε με αυτούς τους περιορισμούς**, χρησιμοποιούμε ΤΗ ΡΟΗ ΤΗΣ
-ΙΔΙΑΣ ΤΗΣ ΣΕΛΙΔΑΣ:
-  * Κάθε μέρα σαρώνουμε τη ΣΕΛΙΔΑ 1 = 10-11 πιο ΠΡΟΣΦΑΤΑ προγράμματα
-  * Νέα προγράμματα εμφανίζονται ΠΑΝΤΑ στη σελίδα 1 → τα πιάνουμε άμεσα
-  * Κρατάμε ACCUMULATIVE database — τα υπάρχοντα δεν διαγράφονται
-  * Με το χρόνο, η βάση γεμίζει φυσικά
-
-Αυτή η προσέγγιση:
-  * Σέβεται πλήρως το robots.txt του site
-  * Δεν παλεύει με SharePoint automation
-  * Ακόμα κι αν αύριο το site αλλάξει δομή, τα ήδη-συσσωρευμένα προγράμματα
-    παραμένουν στο data/programs.json
+Λειτουργία:
+  - Σαρώνει σελίδα 1 (10 πιο πρόσφατα προγράμματα κάθε μέρα)
+  - Συσσωρευτική βάση: τα υπάρχοντα δεν διαγράφονται, τα νέα ενσωματώνονται
+  - Καθαρίζει τυχόν παλιές λάθος εγγραφές από buggy προηγούμενα scrapes
 """
 from __future__ import annotations
 
@@ -55,6 +48,12 @@ KAD_KEYWORD_MAP = {
     "96": ["ομορφι", "κομμωτήρι", "αισθητικ", "ευεξί"],
 }
 
+# Τίτλοι που ΔΕΝ είναι πραγματικές προσκλήσεις (menu items, widgets κ.λπ.)
+NOT_A_PROGRAM = re.compile(
+    r"^(περιοχή μελών|σύνδεση|εγγραφή|τα προγράμματά μου|newsletter|contact|επικοινωνία)",
+    re.IGNORECASE
+)
+
 
 def robots_allows() -> bool:
     rp = robotparser.RobotFileParser()
@@ -82,57 +81,102 @@ def guess_kad_tags(text: str) -> list[str]:
     return [prefix for prefix, kws in KAD_KEYWORD_MAP.items() if any(kw in t for kw in kws)]
 
 
-def extract_items_from_page(page) -> list[dict]:
-    """Παίρνει τα προγράμματα από την τρέχουσα σελίδα του Proclamations.
+def strip_html(html: str) -> str:
+    """Αφαιρεί HTML tags και decode-άρει τα βασικά entities."""
+    html = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+    html = re.sub(r"</p\s*>", "\n", html, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", html)
+    entities = {
+        "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+        "&quot;": '"', "&#39;": "'", "&apos;": "'", "\xa0": " ",
+    }
+    for k, v in entities.items():
+        text = text.replace(k, v)
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
 
-    Σημαντικό: κάθε κάρτα προγράμματος έχει πολλά links με item= (τίτλος,
-    "Περισσότερα...", "Προσθήκη στη λίστα"). Κρατάμε το link με τον μακρύτερο
-    τίτλο για κάθε item ID — αυτό είναι πάντα ο πραγματικός τίτλος."""
-    return page.evaluate(
-        """
-        () => {
-          const byItemId = {}; // itemId -> {title, blockText, moreHref}
 
-          const proclamationLinks = Array.from(document.querySelectorAll('a[href*="item="]'));
-          for (const link of proclamationLinks) {
-            const title = link.textContent.trim();
-            if (!title || title.length < 5) continue;
+def parse_html(html: str) -> list[dict]:
+    """Extract προγραμμάτων από HTML string με βάση τη δομή:
+    <h3>τίτλος</h3> ... <a href="ProclamationsFS.aspx?item=NNNN">...</a>
 
-            // Απόρριψε γνωστά UI elements
-            if (/^(προσθήκη|αφαίρεση|περισσότερα|δείτε|read|edit|επεξεργασία|εγγραφή|register|↩|back|home|αρχική|share|κοινοποίηση|print|εκτύπωση|save|αποθήκευση)/i.test(title)) continue;
-            const role = link.getAttribute('role') || '';
-            if (role === 'button') continue;
-            if (link.querySelector('img') && !link.textContent.replace(/\\s/g, '').length) continue;
+    Επιβεβαιωμένη προσέγγιση από snapshot testing."""
 
-            const itemMatch = link.href.match(/item=(\\d+)/);
-            if (!itemMatch) continue;
-            const itemId = itemMatch[1];
+    # Βρες όλα τα <h3> tags με τους indices τους
+    h3_matches = list(re.finditer(r"<h3[^>]*>(.*?)</h3>", html, re.DOTALL))
 
-            // Κράτησε αυτό αν είναι το πρώτο, ή αν έχει μακρύτερο τίτλο από αυτό που έχουμε
-            if (!byItemId[itemId] || title.length > byItemId[itemId].title.length) {
-              // Πάρε τον container που περιέχει τα μεταδεδομένα
-              let container = link;
-              for (let i = 0; i < 6; i++) {
-                if (!container.parentElement) break;
-                container = container.parentElement;
-                const txt = container.textContent || '';
-                if (txt.includes('Περίοδος υποβολής') || txt.includes('Επιχειρησιακό πρόγραμμα') ||
-                    txt.includes('Δικαιούχοι') || txt.includes('Περιοχή εφαρμογής')) break;
-              }
-              byItemId[itemId] = {
-                title,
-                blockText: container ? container.textContent : '',
-                moreHref: link.href || ''
-              };
-            }
-          }
+    results = []
+    for i, h3 in enumerate(h3_matches):
+        title = strip_html(h3.group(1)).strip()
+        if not title or len(title) < 10:
+            continue
+        if NOT_A_PROGRAM.match(title):
+            continue
 
-          // Safety net: πέτα οτιδήποτε έχει καταλήξει με τίτλο που ξεκινάει με "Περισσότερα..." κ.λπ.
-          const finalPattern = /^(προσθήκη|αφαίρεση|περισσότερα|δείτε |read |edit |share |print |save )/i;
-          return Object.values(byItemId).filter(x => !finalPattern.test(x.title));
-        }
-        """
-    )
+        # Section = HTML μεταξύ αυτού και του επόμενου h3 (ή τέλους)
+        start = h3.end()
+        end = h3_matches[i + 1].start() if i + 1 < len(h3_matches) else len(html)
+        section_html = html[start:end]
+        section_text = strip_html(section_html)
+
+        # Extract URL - ψάχνουμε το ProclamationsFS.aspx link
+        url_match = re.search(
+            r'href="([^"]*ProclamationsFS\.aspx\?item=\d+[^"]*)"',
+            section_html
+        )
+        url = None
+        item_id = None
+        if url_match:
+            url = url_match.group(1).replace("&amp;", "&")
+            if url.startswith("/"):
+                url = BASE + url
+            id_match = re.search(r"item=(\d+)", url)
+            if id_match:
+                item_id = id_match.group(1)
+
+        # Αν δεν βρήκαμε URL, δεν είναι πρόσκληση
+        if not url or not item_id:
+            continue
+
+        # Extract metadata
+        status = "Ενεργό"
+        if section_text.startswith("Έχει λήξει") or "\nΈχει λήξει" in section_text[:100]:
+            status = "Έχει λήξει"
+        elif section_text.startswith("Αναμένεται") or "\nΑναμένεται" in section_text[:100]:
+            status = "Αναμένεται"
+
+        period_match = re.search(r"Περίοδος υποβολής:?\s*([\d/\s\-–—]+)", section_text)
+        start_iso, end_iso = parse_period(period_match.group(1)) if period_match else (None, None)
+
+        op_match = re.search(
+            r"Επιχειρησιακό πρόγραμμα:?\s*([^\n]+?)(?=\s*Περιοχή εφαρμογής|\s*Δικαιούχοι|\s*Περίοδος|$)",
+            section_text
+        )
+        region_match = re.search(
+            r"Περιοχή εφαρμογής:?\s*([^\n]+?)(?=\s*Περίοδος υποβολής|\s*Δικαιούχοι|\s*Επιχειρησιακό|$)",
+            section_text
+        )
+        beneficiaries_match = re.search(
+            r"Δικαιούχοι:?\s*([^\n]+?)(?=\s*Περίοδος|\s*Επιχειρησιακό|\s*Περιοχή|$)",
+            section_text
+        )
+
+        results.append({
+            "id": item_id,
+            "title": title,
+            "status": status,
+            "operational_programme": (op_match.group(1).strip() if op_match else "").strip(",: "),
+            "region": (region_match.group(1).strip() if region_match else "").strip(",: "),
+            "beneficiaries": (beneficiaries_match.group(1).strip() if beneficiaries_match else "").strip(",: "),
+            "submission_start": start_iso,
+            "submission_end": end_iso,
+            "url": url,
+            "kad_tags": guess_kad_tags(f"{title} {section_text}"),
+            "source": "espa.gr",
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    return results
 
 
 def scrape_page_one() -> list[dict]:
@@ -142,111 +186,44 @@ def scrape_page_one() -> list[dict]:
         return []
     print(f"[ok] robots.txt: επιτρέπεται", file=sys.stderr)
 
-    programs = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent=USER_AGENT)
         page.goto(LISTING_URL, wait_until="networkidle", timeout=30000)
 
-        # Περιμένουμε να φορτώσει η λίστα προγραμμάτων
+        # Περιμένουμε να φορτώσει το περιεχόμενο των h3 titles
         try:
             page.wait_for_function(
-                "() => document.querySelectorAll('a[href*=\"ProclamationsFS.aspx?item=\"]').length > 3",
+                "() => document.querySelectorAll('h3').length > 5",
                 timeout=25000
             )
             print("[ok] Λίστα προγραμμάτων φορτώθηκε", file=sys.stderr)
         except Exception:
             print("[warn] Δεν φόρτωσε λίστα προγραμμάτων εντός 25s — προχωράμε πάντως", file=sys.stderr)
-        # Δώσε επιπλέον χρόνο για ολοκλήρωση rendering
-        page.wait_for_timeout(2000)
 
-        items = extract_items_from_page(page)
-        print(f"[ok] Βρέθηκαν {len(items)} προγράμματα στη σελίδα 1", file=sys.stderr)
-
-        # Debug όταν βρίσκουμε 0
-        if len(items) == 0:
-            diag = page.evaluate("""() => ({
-              url: location.href,
-              title: document.title,
-              bodyLength: document.body.textContent.length,
-              itemLinks: document.querySelectorAll('a[href*="item="]').length,
-              h3Links: document.querySelectorAll('h3 a').length,
-              h4Links: document.querySelectorAll('h4 a').length,
-              firstLinks: Array.from(document.querySelectorAll('a')).slice(5, 15).map(a => ({
-                text: (a.textContent || '').trim().slice(0, 60),
-                href: (a.href || '').slice(0, 100)
-              }))
-            })""")
-            print(f"[debug] URL: {diag['url']}", file=sys.stderr)
-            print(f"[debug] Title: {diag['title']}", file=sys.stderr)
-            print(f"[debug] Body length: {diag['bodyLength']}", file=sys.stderr)
-            print(f"[debug] a[href*=item=] links: {diag['itemLinks']}", file=sys.stderr)
-            print(f"[debug] h3 links: {diag['h3Links']}, h4 links: {diag['h4Links']}", file=sys.stderr)
-            print(f"[debug] Sample links:", file=sys.stderr)
-            for l in diag['firstLinks']:
-                print(f"  text='{l['text']}' href='{l['href']}'", file=sys.stderr)
-
-        for it in items:
-            title = it["title"]
-            block_text = it["blockText"]
-            more_href = it["moreHref"]
-
-            status = "Ενεργό"
-            head = block_text[:60]
-            if "Αναμένεται" in head:
-                status = "Αναμένεται"
-            elif "Έχει λήξει" in head:
-                status = "Έχει λήξει"
-
-            period_match = re.search(r"Περίοδος υποβολής:?\s*([\d/\-\s–—]+)", block_text)
-            start_iso, end_iso = parse_period(period_match.group(1)) if period_match else (None, None)
-
-            op_match = re.search(r"Επιχειρησιακό πρόγραμμα:?\s*([^\n]+?)(?=Περιοχή εφαρμογής|Δικαιούχοι|$)", block_text)
-            region_match = re.search(r"Περιοχή εφαρμογής:?\s*([^\n]+?)(?=Περίοδος υποβολής|Δικαιούχοι|$)", block_text)
-            beneficiaries_match = re.search(r"Δικαιούχοι:?\s*([^\n]+?)(?=Περίοδος|Επιχειρησιακό|Περιοχή|$)", block_text)
-
-            item_id = None
-            if more_href:
-                m = re.search(r"item=(\d+)", more_href)
-                item_id = m.group(1) if m else None
-
-            programs.append({
-                "id": item_id,
-                "title": title,
-                "status": status,
-                "operational_programme": (op_match.group(1).strip() if op_match else "").strip(", "),
-                "region": (region_match.group(1).strip() if region_match else "").strip(", "),
-                "beneficiaries": (beneficiaries_match.group(1).strip() if beneficiaries_match else "").strip(", "),
-                "submission_start": start_iso,
-                "submission_end": end_iso,
-                "url": more_href,
-                "kad_tags": guess_kad_tags(f"{title} {block_text}"),
-                "source": "espa.gr",
-                "fetched_at": datetime.now(timezone.utc).isoformat(),
-            })
-
+        page.wait_for_timeout(2000)  # extra για rendering
+        html = page.content()
         browser.close()
+
+    programs = parse_html(html)
+    print(f"[ok] Βρέθηκαν {len(programs)} προγράμματα στη σελίδα 1", file=sys.stderr)
     return programs
 
 
 def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[list[dict], int, int]:
     """Συγχωνεύει τα νέα προγράμματα με τα υπάρχοντα του data/programs.json.
-    Επιστρέφει (merged_list, added, updated).
-
-    ΣΗΜΑΝΤΙΚΟ: Καθαρίζει εγγραφές που έχουν λάθος τίτλους (π.χ. "Προσθήκη στη λίστα...")
-    από παλαιότερες buggy εκτελέσεις του scraper."""
+    Καθαρίζει επίσης εγγραφές που έχουν λάθος τίτλους από παλιές buggy εκτελέσεις."""
     existing: dict[str, dict] = {}
     invalid_removed = 0
     if existing_path.exists():
         try:
             data = json.loads(existing_path.read_text(encoding="utf-8"))
             for p in data.get("programs", []):
-                title = p.get("title", "").strip()
-                # Φίλτραρε λάθος τίτλους από παλιά bugs (μπορεί να έχουν leading spaces, tonos κ.λπ.)
-                title_lower = title.lower()
-                if ("προσθήκη" in title_lower and "λίστα" in title_lower) or \
-                   ("αφαίρεση" in title_lower and "λίστα" in title_lower) or \
-                   title_lower.startswith(("περισσότερα", "δείτε ", "read ", "edit ", "επεξεργασία", "share ", "print ")):
+                title = p.get("title", "").strip().lower()
+                # Λάθος τίτλοι από παλιά bugs
+                if ("προσθήκη" in title and "λίστα" in title) or \
+                   ("αφαίρεση" in title and "λίστα" in title) or \
+                   title.startswith(("περισσότερα", "δείτε ", "read ", "edit ", "επεξεργασία", "share ", "print ")):
                     invalid_removed += 1
                     continue
                 key = p.get("id") or p.get("title")
@@ -280,17 +257,25 @@ def merge_with_existing(new_programs: list[dict], existing_path: Path) -> tuple[
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=str, default="../data/programs.json")
-    ap.add_argument("--max-pages", type=int, default=1, help="LEGACY: αγνοείται στη v4")
+    ap.add_argument("--max-pages", type=int, default=1, help="LEGACY (αγνοείται στη v5)")
+    ap.add_argument("--from-html", type=str, default=None,
+                    help="Test mode: parse ένα τοπικό HTML αρχείο (skip Playwright/network)")
     args = ap.parse_args()
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    new_programs = scrape_page_one()
+    if args.from_html:
+        # Test mode: διάβασε αρχείο, μη κάνεις scraping
+        html = Path(args.from_html).read_text(encoding="utf-8")
+        new_programs = parse_html(html)
+        print(f"[test-mode] Parsed {len(new_programs)} programs from {args.from_html}", file=sys.stderr)
+    else:
+        new_programs = scrape_page_one()
 
     if not new_programs:
         print("[warn] Καμία εγγραφή — ΔΕΝ αλλάζω το υπάρχον programs.json", file=sys.stderr)
-        sys.exit(0)  # δεν αποτυγχάνει το workflow
+        sys.exit(0)
 
     merged, added, updated = merge_with_existing(new_programs, out_path)
 
