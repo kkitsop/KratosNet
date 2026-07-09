@@ -4,7 +4,13 @@ on:
   schedule:
     # 03:15 UTC = 06:15 Ελλάδας (θερινή ώρα) — τρέχει νύχτα, πριν ξυπνήσεις
     - cron: "15 3 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: 'Reset database (καθαρίζει όλες τις προηγούμενες εγγραφές)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -25,7 +31,12 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run scraper
-        run: python scraper/espa_scraper.py --out data/programs.json --max-pages 29
+        run: |
+          if [ "${{ github.event.inputs.reset }}" = "true" ]; then
+            python scraper/espa_scraper.py --out data/programs.json --reset
+          else
+            python scraper/espa_scraper.py --out data/programs.json
+          fi
 
       - name: Send KAD notifications
         env:
