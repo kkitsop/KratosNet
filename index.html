@@ -1098,7 +1098,9 @@ function scoreProgram(program, tags, region){
     if((program.region||"").toLowerCase().includes(r)) score += 4;
     else if(r.includes("δυτ") && (program.region||"").toLowerCase().includes("δυτική ελλάδα")) score += 4;
   }
-  if(program.status === "Ενεργό") score += 1;
+  // Μόνο αν υπάρχει ήδη ΚΑΔ/περιοχή match, προσθέτεις bonus για ενεργό status.
+  // Χωρίς αυτόν τον έλεγχο, όλα τα ενεργά προγράμματα θα φαίνονταν ως "σχετικά".
+  if(score > 0 && program.status === "Ενεργό") score += 1;
   return score;
 }
 
