@@ -1,6 +1,6 @@
 {
-  "name": "kratosNet",
-  "short_name": "kratosNet",
+  "name": "Κράτος.ΝΕΤ",
+  "short_name": "Κράτος.ΝΕΤ",
   "description": "Το κράτος στο χέρι σου — κρατικές υπηρεσίες, ΕΣΠΑ/ΚΑΔ matcher, εφημερεύοντα κοντά σου",
   "start_url": "./index.html",
   "display": "standalone",
