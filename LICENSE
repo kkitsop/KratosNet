@@ -1,0 +1,59 @@
+Κράτος.ΝΕΤ — Ανεξάρτητη εφαρμογή Ελληνικών κρατικών υπηρεσιών
+Copyright (C) 2026 Κωνσταντίνος Κιτσόπουλος
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/agpl-3.0.html>.
+
+===============================================================================
+
+Το πλήρες κείμενο της AGPL v3 είναι διαθέσιμο στο:
+https://www.gnu.org/licenses/agpl-3.0.html
+
+Ελληνική περίληψη (μη νομικά δεσμευτική, μόνο για κατανόηση):
+
+* Ο κώδικας διανέμεται ελεύθερα με πλήρη διαφάνεια.
+* Οποιοσδήποτε μπορεί να τον διαβάσει, τροποποιήσει και επαναδιανείμει.
+* ΑΝ κάποιος τρέξει τροποποιημένη έκδοση για δημόσια χρήση (ακόμα και ως
+  υπηρεσία στο web), υποχρεούται να δημοσιεύσει τον πηγαίο κώδικά του με
+  την ίδια άδεια (AGPL) και να αναφέρει την πρωτότυπη πηγή.
+* Αυτό διαφέρει από την απλή GPL: καλύπτει και τη χρήση ως cloud service.
+* Δεν παρέχεται καμία εγγύηση για την ορθότητα των δεδομένων.
+
+Για εμπορική άδεια χωρίς AGPL περιορισμούς, επικοινωνήστε με τον
+δικαιούχο μέσω του GitHub repository.
+
+===============================================================================
+
+Εμπορικό σήμα:
+
+Το όνομα "Κράτος.ΝΕΤ" και το σχετικό logo/branding δεν έχουν ακόμα
+κατοχυρωθεί ως εμπορικό σήμα στην ΟΒΙ (Οργανισμός Βιομηχανικής
+Ιδιοκτησίας). Η πνευματική ιδιοκτησία επί του brand ανήκει στον
+δικαιούχο του copyright, με ημερομηνία δημιουργίας που τεκμηριώνεται
+από το ιστορικό commits του GitHub repository.
+
+===============================================================================
+
+Δεδομένα τρίτων:
+
+Η εφαρμογή συνδέεται με και εμφανίζει δεδομένα από:
+* espa.gr - Ελληνικά προγράμματα ΕΣΠΑ (δημόσια δεδομένα)
+* diavgeia.gov.gr - Διαύγεια (δημόσια δεδομένα, ΝΟΜΟΣ 3861/2010)
+* data.gov.gr - Ανοιχτά δεδομένα (open data)
+* OpenStreetMap contributors - χάρτες και POI (ODbL)
+* Nominatim (OSM) - reverse geocoding
+
+Καμία σύνδεση, υποστήριξη ή έγκριση από τους παραπάνω φορείς δεν
+υπονοείται. Οι πληροφορίες παρέχονται ως έχουν, χωρίς εγγύηση
+πληρότητας ή ακρίβειας. Για κρίσιμες αποφάσεις (φορολογικές,
+νομικές, οικονομικές) επιβεβαιώνετε πάντα στις επίσημες πηγές.
