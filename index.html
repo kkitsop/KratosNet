@@ -1171,7 +1171,46 @@ function runMatch(){
     .filter(x => x.score > 0)
     .sort((a,b)=>b.score-a.score);
 
+  // Αν δεν βρέθηκαν κριτήρια που ταιριάζουν, δείξε όλα τα ενεργά με σχόλιο
+  if(scored.length === 0){
+    const active = PROGRAMS.filter(p=>p.status==="Ενεργό")
+      .sort((a,b)=>(a.submission_end||"9999").localeCompare(b.submission_end||"9999"))
+      .map(program=>({program, score:0}));
+    const el = document.getElementById("espaResults");
+    el.innerHTML = `<div class="empty" style="margin-bottom:12px">
+      Δεν βρέθηκαν προγράμματα που να ταιριάζουν άμεσα με τα κριτήριά σου
+      (ΚΑΔ: <b>${kad || "—"}</b>, Περιφέρεια: <b>${region || "—"}</b>).
+      Ακολουθούν όλα τα ενεργά προγράμματα:
+    </div>` + renderEspaResultsInline(active, [], "");
+    return;
+  }
+
   renderEspaResults(scored, tags, region);
+}
+
+// Helper: επιστρέφει HTML αντί να το βάζει στο DOM (για inline use)
+function renderEspaResultsInline(list, tags, region){
+  return list.map(({program, score}) => {
+    const isNew = NEW_PROGRAM_IDS.has(program.id || program.title);
+    const icsUrl = buildIcsUrl(program);
+    return `
+    <div class="result">
+      <div class="top">
+        <h3>${program.title}${isNew ? '<span class="new-badge">ΝΕΟ</span>' : ""}</h3>
+        ${statusStamp(program.status)}
+      </div>
+      ${program.beneficiaries ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${program.beneficiaries}</div>` : ""}
+      <div class="meta">
+        ${program.operational_programme ? `<span>ΠΡΟΓΡ. ${program.operational_programme}</span>` : ""}
+        ${program.region ? `<span>ΠΕΡΙΟΧΗ ${program.region}</span>` : ""}
+        ${program.submission_end ? `<span>ΕΩΣ ${program.submission_end}</span>` : ""}
+      </div>
+      <div class="navbtns">
+        <a class="more" href="${program.url}" data-inapp="1" data-name="${(program.title||'').replace(/"/g,'')}">Δες την πρόσκληση</a>
+        ${icsUrl ? `<a class="navbtn" download="espa-deadline.ics" href="${icsUrl}">📅 Στο ημερολόγιο</a>` : ""}
+      </div>
+    </div>`;
+  }).join("");
 }
 
 // Pre-fill from last visit
