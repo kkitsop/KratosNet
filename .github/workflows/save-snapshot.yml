@@ -1,7 +1,7 @@
 name: Save espa.gr snapshot
 
 on:
-  workflow_dispatch:  # Χειροκίνητη εκκίνηση μόνο
+  workflow_dispatch:
 
 jobs:
   snapshot:
@@ -18,23 +18,24 @@ jobs:
 
       - name: Save espa.gr snapshot
         run: |
-          python3 << 'EOF'
+          python3 << 'PYEOF'
           from playwright.sync_api import sync_playwright
+
+          URL = "https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx"
 
           with sync_playwright() as p:
               browser = p.chromium.launch()
-              page = browser.new_page(user_agent="Mozilla/5.0 (compatible; GovHubBot/1.0)")
-              page.goto("https://www.espa.gr/el/Pages/Proclamations.aspx", wait_until="networkidle", timeout=30000)
-              page.wait_for_timeout(5000)  # extra time for JS rendering
+              page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+              page.goto(URL, wait_until="networkidle", timeout=60000)
+              page.wait_for_timeout(5000)
               html = page.content()
               with open("espa_snapshot.html", "w", encoding="utf-8") as f:
                   f.write(html)
               print(f"Saved {len(html)} bytes")
               browser.close()
-          EOF
+          PYEOF
 
-      - name: Upload snapshot artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: espa-snapshot
           path: espa_snapshot.html
