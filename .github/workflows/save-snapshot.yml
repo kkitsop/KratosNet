@@ -16,24 +16,29 @@ jobs:
           pip install playwright==1.56.0
           playwright install --with-deps chromium
 
-      - name: Save espa.gr snapshot
+      - name: Create scraper script
         run: |
-          python3 << 'PYEOF'
+          cat > /tmp/snap.py << 'SCRIPT'
           from playwright.sync_api import sync_playwright
 
           URL = "https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx"
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
           with sync_playwright() as p:
               browser = p.chromium.launch()
-              page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-              page.goto(URL, wait_until="networkidle", timeout=60000)
+              page = browser.new_page(user_agent=UA)
+              print(f"Navigating to: {URL}")
+              page.goto(URL, wait_until="domcontentloaded", timeout=60000)
               page.wait_for_timeout(5000)
               html = page.content()
               with open("espa_snapshot.html", "w", encoding="utf-8") as f:
                   f.write(html)
               print(f"Saved {len(html)} bytes")
               browser.close()
-          PYEOF
+          SCRIPT
+
+      - name: Run snapshot
+        run: python3 /tmp/snap.py
 
       - uses: actions/upload-artifact@v4
         with:
