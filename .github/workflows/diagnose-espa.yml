@@ -7,23 +7,41 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Test with curl (no Playwright)
+      - name: Test direct curl
+        continue-on-error: true
         run: |
-          echo "=== Test 1: robots.txt ==="
-          curl -v --max-time 30 https://www.espa.gr/robots.txt || echo "FAILED"
-          echo ""
-          echo "=== Test 2: main page ==="
-          curl -v --max-time 60 -o /tmp/page.html \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" \
-            https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx
-          echo ""
-          echo "=== Result ==="
-          ls -la /tmp/page.html 2>/dev/null && echo "Downloaded $(wc -c < /tmp/page.html) bytes"
-          head -50 /tmp/page.html 2>/dev/null
+          echo "=== Direct curl (μικρό timeout) ==="
+          curl --max-time 20 -sS -o /tmp/direct.html \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0" \
+            https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx && \
+            echo "OK: $(wc -c < /tmp/direct.html) bytes" || echo "FAILED"
 
       - name: Test allorigins proxy
+        if: always()
+        continue-on-error: true
         run: |
-          echo "=== Test 3: via allorigins proxy ==="
-          curl -v --max-time 60 -o /tmp/proxied.json \
-            "https://api.allorigins.win/get?url=https%3A%2F%2Fwww.espa.gr%2Fel%2FPages%2FProgrammes_2021-2027.aspx" || echo "FAILED"
-          ls -la /tmp/proxied.json 2>/dev/null && echo "Downloaded $(wc -c < /tmp/proxied.json) bytes"
+          echo "=== allorigins proxy ==="
+          curl --max-time 60 -sS -o /tmp/proxied.json \
+            "https://api.allorigins.win/get?url=https%3A%2F%2Fwww.espa.gr%2Fel%2FPages%2FProgrammes_2021-2027.aspx" && \
+            echo "Downloaded $(wc -c < /tmp/proxied.json) bytes" && \
+            echo "First 500 chars:" && head -c 500 /tmp/proxied.json || echo "FAILED"
+
+      - name: Test corsproxy.io
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "=== corsproxy.io ==="
+          curl --max-time 60 -sS -o /tmp/cors.html \
+            "https://corsproxy.io/?https%3A%2F%2Fwww.espa.gr%2Fel%2FPages%2FProgrammes_2021-2027.aspx" && \
+            echo "Downloaded $(wc -c < /tmp/cors.html) bytes" && \
+            echo "First 300 chars:" && head -c 300 /tmp/cors.html || echo "FAILED"
+
+      - name: Test corsanywhere alternative
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "=== thingproxy.freeboard.io ==="
+          curl --max-time 60 -sS -o /tmp/thing.html \
+            "https://thingproxy.freeboard.io/fetch/https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx" && \
+            echo "Downloaded $(wc -c < /tmp/thing.html) bytes" && \
+            echo "First 300 chars:" && head -c 300 /tmp/thing.html || echo "FAILED"
