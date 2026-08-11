@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ΕΣΠΑ Auto-Update — Κράτος.ΝΕΤ</title>
+<style>
+  :root{--aegean:#0B4F6C;--card:#FFFFFF;--line:#E4E7EB;--ink:#1B2430;--muted:#5B6472;--bg:#F7F8FA}
+  @media (prefers-color-scheme:dark){:root{--aegean:#4FB8E0;--card:#1E2530;--line:#2D3644;--ink:#E9EAE5;--muted:#98A0AC;--bg:#141922}}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:760px;margin:0 auto;padding:24px 20px 60px;color:var(--ink);background:var(--bg);line-height:1.6}
+  h1{font-size:24px;color:var(--aegean);border-bottom:2px solid var(--aegean);padding-bottom:8px}
+  h2{font-size:18px;color:var(--aegean);margin-top:28px}
+  .bookmarklet{display:inline-block;padding:16px 28px;background:var(--aegean);color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:17px;margin:12px 0;cursor:move}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin:16px 0}
+  .highlight{background:var(--card);border-left:4px solid var(--aegean);padding:12px 16px;margin:16px 0}
+  ol{padding-left:22px}
+  li{margin:8px 0}
+  code{background:var(--card);padding:2px 6px;border-radius:4px;font-size:13px;border:1px solid var(--line)}
+  textarea{width:100%;height:100px;font-family:monospace;font-size:10px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+  button{padding:8px 16px;background:var(--aegean);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin:12px 0}
+  .step-num{display:inline-block;width:26px;height:26px;background:var(--aegean);color:#fff;border-radius:50%;text-align:center;line-height:26px;font-weight:700;margin-right:8px}
+</style>
+</head>
+<body>
+
+<h1>ΕΣΠΑ Auto-Update 🚀</h1>
+<p style="color:var(--muted)">Πλήρως αυτοματοποιημένη ενημέρωση των προγραμμάτων ΕΣΠΑ. Ένα κλικ, όλα γίνονται αυτόματα.</p>
+
+<div class="highlight">
+<strong>Πώς λειτουργεί:</strong> Πατάς το bookmark στη σελίδα ΕΣΠΑ → το JavaScript διαβάζει τα προγράμματα → τα στέλνει στο Cloudflare Worker σου → ο Worker κάνει auto-commit στο GitHub → το app ενημερώνεται σε 1 λεπτό. <strong>Καμία manual ενέργεια.</strong>
+</div>
+
+<h2>Εγκατάσταση — μία φορά</h2>
+
+<div class="step">
+<span class="step-num">💻</span><strong>Στον υπολογιστή:</strong>
+<p>Σύρε αυτό το κουμπί στη γραμμή αγαπημένων του browser:</p>
+<p><a class="bookmarklet" href="javascript:javascript:(async function(){  const WORKER_URL=&quot;https://espa-proxy.kkitsop.workers.dev/commit&quot;;  const KAD_KEYWORDS={&quot;56&quot;:[&quot;εστίαση&quot;,&quot;καφε&quot;,&quot;καφέ&quot;,&quot;επισιτισμ&quot;,&quot;τροφοδοσ&quot;,&quot;μπαρ&quot;,&quot;ζαχαροπλαστ&quot;],&quot;55&quot;:[&quot;τουρισ&quot;,&quot;κατάλυμα&quot;,&quot;ξενοδοχ&quot;,&quot;ενοικιαζόμεν&quot;],&quot;47&quot;:[&quot;λιανικ&quot;,&quot;εμπόρι&quot;,&quot;κατάστημα&quot;,&quot;e-λιανικό&quot;,&quot;e-shop&quot;,&quot;πώληση&quot;],&quot;46&quot;:[&quot;χονδρικ&quot;,&quot;διανομ&quot;,&quot;εφοδιαστικ&quot;],&quot;62&quot;:[&quot;λογισμικ&quot;,&quot;πληροφορικ&quot;,&quot;ψηφιακ&quot;,&quot;τεχνολογ&quot;,&quot;startup&quot;,&quot;καινοτομ&quot;,&quot;προγραμματισμ&quot;,&quot;εφαρμογ&quot;],&quot;63&quot;:[&quot;δεδομέν&quot;,&quot;hosting&quot;,&quot;φιλοξεν&quot;,&quot;cloud&quot;],&quot;10&quot;:[&quot;μεταποίηση&quot;,&quot;τρόφιμα&quot;,&quot;βιομηχαν&quot;],&quot;01&quot;:[&quot;αγροτικ&quot;,&quot;γεωργ&quot;,&quot;κτηνοτροφ&quot;,&quot;καλλιέργει&quot;],&quot;41&quot;:[&quot;κατασκευ&quot;,&quot;οικοδομ&quot;,&quot;κτίρι&quot;],&quot;43&quot;:[&quot;ηλεκτρολογικ&quot;,&quot;υδραυλικ&quot;,&quot;εξειδικευμέν&quot;],&quot;69&quot;:[&quot;νομικ&quot;,&quot;λογιστικ&quot;,&quot;φοροτεχνικ&quot;],&quot;71&quot;:[&quot;μηχανικ&quot;,&quot;αρχιτεκτονικ&quot;,&quot;μελέτ&quot;],&quot;85&quot;:[&quot;εκπαίδευση&quot;,&quot;κατάρτιση&quot;,&quot;φροντιστήρι&quot;],&quot;86&quot;:[&quot;υγεία&quot;,&quot;ιατρικ&quot;,&quot;κλινικ&quot;],&quot;90&quot;:[&quot;πολιτισμ&quot;,&quot;τέχν&quot;,&quot;καλλιτεχνικ&quot;],&quot;96&quot;:[&quot;ομορφι&quot;,&quot;κομμωτήρι&quot;,&quot;αισθητικ&quot;,&quot;ευεξί&quot;]};  function tags(text){const t=text.toLowerCase(),r=[];for(const[p,kws]of Object.entries(KAD_KEYWORDS))if(kws.some(k=>t.includes(k)))r.push(p);return r}  function parsePeriod(text){const m=text.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–—]\s*(\d{1,2}\/\d{1,2}\/\d{4})/);if(!m)return[null,null];const iso=d=>{const[dd,mm,yy]=d.split(&quot;/&quot;);return `${yy}-${String(+mm).padStart(2,&quot;0&quot;)}-${String(+dd).padStart(2,&quot;0&quot;)}`};return[iso(m[1]),iso(m[2])]}  const NOT_PROG=/^(περιοχή μελών|σύνδεση|εγγραφή|τα προγράμματά μου|newsletter|contact|επικοινωνία)/i;  const headers=document.querySelectorAll(&quot;h3&quot;);  const programs=[];  const now=new Date().toISOString();  for(let i=0;i<headers.length;i++){    const h=headers[i];    const title=(h.textContent||&quot;&quot;).trim().replace(/\s+/g,&quot; &quot;);    if(!title||title.length<10||NOT_PROG.test(title))continue;    let section=h.nextElementSibling,sectionHTML=&quot;&quot;,sectionText=&quot;&quot;;    while(section&amp;&amp;section.tagName!==&quot;H3&quot;){sectionHTML+=section.outerHTML||&quot;&quot;;sectionText+=&quot; &quot;+(section.textContent||&quot;&quot;);section=section.nextElementSibling}    const urlM=sectionHTML.match(/href=&quot;([^&quot;]*Proclamations[^&quot;]*item=\d+[^&quot;]*)&quot;/i)||sectionHTML.match(/href=&quot;([^&quot;]*item=\d+[^&quot;]*)&quot;/i);    if(!urlM)continue;    let url=urlM[1].replace(/&amp;amp;/g,&quot;&amp;&quot;);    if(url.startsWith(&quot;/&quot;))url=&quot;https://www.espa.gr&quot;+url;    const idM=url.match(/item=(\d+)/);    if(!idM)continue;    const st=sectionText.slice(0,120);    let status=&quot;Ενεργό&quot;;    if(/έχει\s*λήξει/i.test(st))status=&quot;Έχει λήξει&quot;;    else if(/αναμένεται/i.test(st))status=&quot;Αναμένεται&quot;;    const per=sectionText.match(/Περίοδος υποβολής:?\s*([\d\/\s\-–—]+)/);    const[start,end]=per?parsePeriod(per[1]):[null,null];    const op=sectionText.match(/Επιχειρησιακό πρόγραμμα:?\s*([^\n]+?)(?=\s*Περιοχή εφαρμογής|\s*Δικαιούχοι|\s*Περίοδος|$)/);    const reg=sectionText.match(/Περιοχή εφαρμογής:?\s*([^\n]+?)(?=\s*Περίοδος|\s*Δικαιούχοι|\s*Επιχειρησιακό|$)/);    const ben=sectionText.match(/Δικαιούχοι:?\s*([^\n]+?)(?=\s*Περίοδος|\s*Επιχειρησιακό|\s*Περιοχή|$)/);    programs.push({id:idM[1],title,status,operational_programme:(op?op[1]:&quot;&quot;).trim().replace(/^[,:\s]+|[,:\s]+$/g,&quot;&quot;),region:(reg?reg[1]:&quot;&quot;).trim().replace(/^[,:\s]+|[,:\s]+$/g,&quot;&quot;),beneficiaries:(ben?ben[1]:&quot;&quot;).trim().replace(/^[,:\s]+|[,:\s]+$/g,&quot;&quot;),submission_start:start,submission_end:end,url,kad_tags:tags(title+&quot; &quot;+sectionText),source:&quot;espa.gr&quot;,fetched_at:now,first_seen:now});  }  if(programs.length===0){alert(&quot;❌ Δεν βρέθηκαν προγράμματα.\n\nΕίσαι στη σωστή σελίδα;\nespa.gr → Προγράμματα ΕΣΠΑ 2021-2027&quot;);return}  const payload={generated_at:now,count:programs.length,programs};  try{    const resp=await fetch(WORKER_URL,{method:&quot;POST&quot;,headers:{&quot;Content-Type&quot;:&quot;application/json&quot;},body:JSON.stringify(payload)});    const data=await resp.json();    if(resp.ok){      if(data.status===&quot;unchanged&quot;)alert(&quot;ℹ️ Βρέθηκαν &quot;+programs.length+&quot; προγράμματα.\n\nΔεν χρειάστηκε ενημέρωση — τα δεδομένα είναι ήδη τα ίδια.&quot;);      else alert(&quot;✅ Επιτυχία!\n\n&quot;+programs.length+&quot; προγράμματα ανέβηκαν στο GitHub.\n\nΤο app θα ενημερωθεί σε ~1 λεπτό.&quot;);    }else{      alert(&quot;❌ Σφάλμα Worker:\n&quot;+(data.error||resp.status)+&quot;\n\n&quot;+(data.details||&quot;&quot;).slice(0,200));    }  }catch(err){    alert(&quot;❌ Σφάλμα δικτύου: &quot;+err.message);  }})();">🚀 Update ΕΣΠΑ</a></p>
+</div>
+
+<div class="step">
+<span class="step-num">📱</span><strong>Στο κινητό:</strong>
+<ol>
+<li>Πάτα το κουμπί <strong>Αντιγραφή</strong> παρακάτω:
+<br><br>
+<textarea id="code" readonly>javascript:(async function(){  const WORKER_URL="https://espa-proxy.kkitsop.workers.dev/commit";  const KAD_KEYWORDS={"56":["εστίαση","καφε","καφέ","επισιτισμ","τροφοδοσ","μπαρ","ζαχαροπλαστ"],"55":["τουρισ","κατάλυμα","ξενοδοχ","ενοικιαζόμεν"],"47":["λιανικ","εμπόρι","κατάστημα","e-λιανικό","e-shop","πώληση"],"46":["χονδρικ","διανομ","εφοδιαστικ"],"62":["λογισμικ","πληροφορικ","ψηφιακ","τεχνολογ","startup","καινοτομ","προγραμματισμ","εφαρμογ"],"63":["δεδομέν","hosting","φιλοξεν","cloud"],"10":["μεταποίηση","τρόφιμα","βιομηχαν"],"01":["αγροτικ","γεωργ","κτηνοτροφ","καλλιέργει"],"41":["κατασκευ","οικοδομ","κτίρι"],"43":["ηλεκτρολογικ","υδραυλικ","εξειδικευμέν"],"69":["νομικ","λογιστικ","φοροτεχνικ"],"71":["μηχανικ","αρχιτεκτονικ","μελέτ"],"85":["εκπαίδευση","κατάρτιση","φροντιστήρι"],"86":["υγεία","ιατρικ","κλινικ"],"90":["πολιτισμ","τέχν","καλλιτεχνικ"],"96":["ομορφι","κομμωτήρι","αισθητικ","ευεξί"]};  function tags(text){const t=text.toLowerCase(),r=[];for(const[p,kws]of Object.entries(KAD_KEYWORDS))if(kws.some(k=>t.includes(k)))r.push(p);return r}  function parsePeriod(text){const m=text.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–—]\s*(\d{1,2}\/\d{1,2}\/\d{4})/);if(!m)return[null,null];const iso=d=>{const[dd,mm,yy]=d.split("/");return `${yy}-${String(+mm).padStart(2,"0")}-${String(+dd).padStart(2,"0")}`};return[iso(m[1]),iso(m[2])]}  const NOT_PROG=/^(περιοχή μελών|σύνδεση|εγγραφή|τα προγράμματά μου|newsletter|contact|επικοινωνία)/i;  const headers=document.querySelectorAll("h3");  const programs=[];  const now=new Date().toISOString();  for(let i=0;i<headers.length;i++){    const h=headers[i];    const title=(h.textContent||"").trim().replace(/\s+/g," ");    if(!title||title.length<10||NOT_PROG.test(title))continue;    let section=h.nextElementSibling,sectionHTML="",sectionText="";    while(section&&section.tagName!=="H3"){sectionHTML+=section.outerHTML||"";sectionText+=" "+(section.textContent||"");section=section.nextElementSibling}    const urlM=sectionHTML.match(/href="([^"]*Proclamations[^"]*item=\d+[^"]*)"/i)||sectionHTML.match(/href="([^"]*item=\d+[^"]*)"/i);    if(!urlM)continue;    let url=urlM[1].replace(/&amp;/g,"&");    if(url.startsWith("/"))url="https://www.espa.gr"+url;    const idM=url.match(/item=(\d+)/);    if(!idM)continue;    const st=sectionText.slice(0,120);    let status="Ενεργό";    if(/έχει\s*λήξει/i.test(st))status="Έχει λήξει";    else if(/αναμένεται/i.test(st))status="Αναμένεται";    const per=sectionText.match(/Περίοδος υποβολής:?\s*([\d\/\s\-–—]+)/);    const[start,end]=per?parsePeriod(per[1]):[null,null];    const op=sectionText.match(/Επιχειρησιακό πρόγραμμα:?\s*([^\n]+?)(?=\s*Περιοχή εφαρμογής|\s*Δικαιούχοι|\s*Περίοδος|$)/);    const reg=sectionText.match(/Περιοχή εφαρμογής:?\s*([^\n]+?)(?=\s*Περίοδος|\s*Δικαιούχοι|\s*Επιχειρησιακό|$)/);    const ben=sectionText.match(/Δικαιούχοι:?\s*([^\n]+?)(?=\s*Περίοδος|\s*Επιχειρησιακό|\s*Περιοχή|$)/);    programs.push({id:idM[1],title,status,operational_programme:(op?op[1]:"").trim().replace(/^[,:\s]+|[,:\s]+$/g,""),region:(reg?reg[1]:"").trim().replace(/^[,:\s]+|[,:\s]+$/g,""),beneficiaries:(ben?ben[1]:"").trim().replace(/^[,:\s]+|[,:\s]+$/g,""),submission_start:start,submission_end:end,url,kad_tags:tags(title+" "+sectionText),source:"espa.gr",fetched_at:now,first_seen:now});  }  if(programs.length===0){alert("❌ Δεν βρέθηκαν προγράμματα.\n\nΕίσαι στη σωστή σελίδα;\nespa.gr → Προγράμματα ΕΣΠΑ 2021-2027");return}  const payload={generated_at:now,count:programs.length,programs};  try{    const resp=await fetch(WORKER_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});    const data=await resp.json();    if(resp.ok){      if(data.status==="unchanged")alert("ℹ️ Βρέθηκαν "+programs.length+" προγράμματα.\n\nΔεν χρειάστηκε ενημέρωση — τα δεδομένα είναι ήδη τα ίδια.");      else alert("✅ Επιτυχία!\n\n"+programs.length+" προγράμματα ανέβηκαν στο GitHub.\n\nΤο app θα ενημερωθεί σε ~1 λεπτό.");    }else{      alert("❌ Σφάλμα Worker:\n"+(data.error||resp.status)+"\n\n"+(data.details||"").slice(0,200));    }  }catch(err){    alert("❌ Σφάλμα δικτύου: "+err.message);  }})();</textarea>
+<br>
+<button onclick="navigator.clipboard.writeText(document.getElementById('code').value);this.textContent='✓ Αντιγράφηκε!';setTimeout(()=>this.textContent='📋 Αντιγραφή κώδικα',2000)">📋 Αντιγραφή κώδικα</button>
+</li>
+<li>Στον browser, φτιάξε νέο bookmark (π.χ. αυτή τη σελίδα)</li>
+<li>Ονόμασέ το: <code>Update ΕΣΠΑ</code></li>
+<li>Στο URL του bookmark, επικόλλησε τον κώδικα (αντικατάσταση του τρέχοντος URL)</li>
+<li>Αποθήκευση</li>
+</ol>
+</div>
+
+<h2>Χρήση — όποτε θες</h2>
+
+<div class="step">
+<ol>
+<li>Άνοιξε: <a href="https://www.espa.gr/el/Pages/Programmes_2021-2027.aspx" target="_blank">espa.gr/el/Pages/Programmes_2021-2027.aspx</a></li>
+<li>Περίμενε να φορτώσει η σελίδα</li>
+<li>Πάτα το bookmark <strong>🚀 Update ΕΣΠΑ</strong></li>
+<li>Περίμενε 3-5 δευτερόλεπτα</li>
+<li>Θα δεις μήνυμα:
+<ul>
+<li><strong>✅ Επιτυχία!</strong> — Ν προγράμματα ανέβηκαν στο GitHub</li>
+<li><strong>ℹ️ Ενημερωμένο</strong> — τα δεδομένα ήταν ήδη ίδια</li>
+<li><strong>❌ Σφάλμα</strong> — κάτι πήγε στραβά (στείλε μου το μήνυμα)</li>
+</ul>
+</li>
+</ol>
+</div>
+
+<h2>Πότε να το τρέχεις</h2>
+<p>Δεν χρειάζεται καθημερινά. Αρκεί:</p>
+<ul>
+<li>Μία φορά την εβδομάδα ή τον μήνα</li>
+<li>Όποτε ακούσεις για κάποιο νέο πρόγραμμα ΕΣΠΑ</li>
+<li>Όταν θυμηθείς</li>
+</ul>
+
+<h2>Πηγαίνει κάτι στραβά;</h2>
+<p>Αν βλέπεις σφάλμα, οι πιο πιθανές αιτίες:</p>
+<ul>
+<li><strong>Σφάλμα δικτύου</strong>: επανάληψη — το espa.gr ή το Worker είναι προσωρινά κάτω</li>
+<li><strong>GitHub PUT failed 401</strong>: το token έληξε ή αφαιρέθηκε — φτιάξε νέο</li>
+<li><strong>0 προγράμματα</strong>: δεν είσαι στη σωστή σελίδα, ή το espa.gr άλλαξε δομή (πες μου)</li>
+</ul>
+
+<p style="margin-top:40px"><a href="/" style="color:var(--aegean)">← Πίσω στο Κράτος.ΝΕΤ</a></p>
+
+</body>
+</html>
