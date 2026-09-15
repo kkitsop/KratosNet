@@ -1,0 +1,35 @@
+name: Nightly KAD notifications
+
+# Το scraping του espa.gr ΔΕΝ γίνεται πλέον εδώ: το espa.gr μπλοκάρει τα IP
+# των GitHub Actions (επιβεβαιωμένο με curl — connection timeout). Η ενημέρωση
+# των προγραμμάτων γίνεται με το bookmarklet (scraper-tool.html) -> Cloudflare
+# Worker -> commit. Αυτό το workflow στέλνει μόνο τα email ειδοποιήσεων.
+
+on:
+  schedule:
+    # 04:15 UTC = 07:15 Ελλάδας (θερινή ώρα)
+    - cron: "15 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Send KAD notifications
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          NOTIFY_SENDER_EMAIL: ${{ secrets.NOTIFY_SENDER_EMAIL }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: python scraper/notify_kad.py
