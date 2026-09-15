@@ -2,6 +2,8 @@
 <html lang="el">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://rjppadnxusyhavdnbimg.supabase.co https://overpass-api.de https://nominatim.openstreetmap.org https://diavgeia.gov.gr https://cdn.jsdelivr.net; frame-src https:; form-action 'self'; base-uri 'self'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Κράτος.ΝΕΤ — Το κράτος στο χέρι σου</title>
 <link rel="manifest" href="manifest.json">
@@ -454,7 +456,10 @@
   </div>
   <div class="viewer-body">
     <div class="viewer-loading" id="viewerLoading">Φόρτωση…</div>
-    <iframe id="viewerFrame"></iframe>
+    <iframe id="viewerFrame"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+      referrerpolicy="no-referrer"
+      loading="lazy"></iframe>
   </div>
 </div>
 
@@ -610,10 +615,49 @@
       (espa.gr, Διαύγεια, OpenStreetMap). Οι πληροφορίες παρέχονται ως έχουν, χωρίς εγγύηση
       πληρότητας — για κρίσιμες αποφάσεις πάντα επιβεβαίωση στην επίσημη πηγή.
     </div>
+
+    <div style="margin-top:14px; text-align:center; font-size:12px; color:var(--muted)">
+      <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style="color:var(--muted); text-decoration:underline">
+        Πολιτική Απορρήτου
+      </a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/kkitsop/KratosNet" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline">
+        Πηγαίος κώδικας (AGPL-3.0)
+      </a>
+    </div>
   </div>
 </div>
 
 <script>
+// ===================== SECURITY HELPERS =====================
+// Χρησιμοποιούνται ΠΑΝΤΟΥ όπου δεδομένα από εξωτερικές πηγές (espa.gr,
+// OpenStreetMap, Διαύγεια, Supabase) ή από τον χρήστη μπαίνουν στο DOM.
+// Επιτρέπει μόνο ασφαλή πρωτόκολλα. Μπλοκάρει javascript:, data:, vbscript:,
+// που θα εκτελούσαν κώδικα με ένα κλικ του χρήστη.
+function safeUrl(u){
+  const s = String(u == null ? "" : u).trim();
+  if(!s) return "#";
+  // Σχετικά URL είναι εντάξει
+  if(/^[/#?]/.test(s)) return s;
+  try{
+    const parsed = new URL(s, location.href);
+    if(parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "mailto:"){
+      return parsed.href;
+    }
+  }catch(e){}
+  return "#";
+}
+
+function escapeHtml(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+
 // ===================== SAFE STORAGE =====================
 // In sandboxed preview iframes (no allow-same-origin), private browsing modes, or
 // with cookies/storage blocked, *accessing* localStorage can throw synchronously —
@@ -753,14 +797,17 @@ function renderPopular(){
 // Used only for informational/no-login destinations (see GOV_LINKS inApp flags
 // and README for the reasoning). Login/payment services always open externally.
 function openInApp(url, title){
-  document.getElementById("viewerTitle").textContent = title || url;
+  // Μόνο http/https φτάνουν στο iframe — ποτέ javascript:/data:
+  const url_ = safeUrl(url);
+  if(url_ === "#") return;
+  document.getElementById("viewerTitle").textContent = title || url_;
   let domain = "";
-  try{ domain = new URL(url).hostname; }catch(e){}
+  try{ domain = new URL(url_).hostname; }catch(e){}
   document.getElementById("viewerDomain").textContent = domain;
-  document.getElementById("viewerExternal").href = url;
+  document.getElementById("viewerExternal").href = url_;
   document.getElementById("viewerLoading").style.display = "block";
   const frame = document.getElementById("viewerFrame");
-  frame.src = url;
+  frame.src = url_;
   document.getElementById("viewerModal").classList.add("open");
 }
 function closeViewer(){
@@ -893,7 +940,28 @@ document.getElementById("tabs").addEventListener("click", e => {
 });
 
 // ===================== NEARBY TAB =====================
-let USER_COORDS = null; // {lat, lon} cached for the session, never sent anywhere except OSM lookups
+let USER_COORDS = null; // {lat, lon} για τη συνεδρία· δεν στέλνεται πουθενά εκτός OSM
+
+// Τα δεδομένα OpenStreetMap είναι επεξεργάσιμα από οποιονδήποτε. Χωρίς escaping,
+// ένα κακόβουλο όνομα POI θα εκτελούσε κώδικα στον browser του χρήστη.
+// Απλή cache ανά (κατηγορία, θέση) για 10 λεπτά — το Overpass έχει rate limits
+const NEARBY_CACHE = new Map();
+const NEARBY_CACHE_TTL = 10 * 60 * 1000;
+function cacheKey(cat, lat, lon, radius){
+  return `${cat}|${lat.toFixed(3)}|${lon.toFixed(3)}|${radius}`;
+}
+
+// fetch με χρονικό όριο — χωρίς αυτό, αν κολλήσει ο διακομιστής,
+// το UI μένει στο «Αναζήτηση…» επ' αόριστον
+async function fetchWithTimeout(url, options = {}, ms = 15000){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try{
+    return await fetch(url, {...options, signal: ctrl.signal});
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function getLocation(){
   return new Promise((resolve, reject) => {
@@ -916,7 +984,8 @@ function haversineKm(lat1, lon1, lat2, lon2){
 }
 
 function navLinks(lat, lon, label){
-  const q = encodeURIComponent(label || "");
+  // encodeURIComponent καλύπτει το URL· τα lat/lon είναι αριθμοί από το OSM
+  const q = encodeURIComponent(String(label || ""));
   return `
     <a class="navbtn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}">Google Maps</a>
     <a class="navbtn" target="_blank" rel="noopener" href="https://waze.com/ul?ll=${lat},${lon}&navigate=yes">Waze</a>
@@ -934,27 +1003,52 @@ function navSearchLinks(query){
 }
 
 async function fetchOverpass(lat, lon, amenity, radius=6000){
-  const query = `[out:json][timeout:12];node["amenity"="${amenity}"](around:${radius},${lat},${lon});out body ${amenity==='fuel'?15:15};`;
-  const res = await fetch("https://overpass-api.de/api/interpreter", {
+  const key = cacheKey(amenity, lat, lon, radius);
+  const hit = NEARBY_CACHE.get(key);
+  if(hit && Date.now() - hit.t < NEARBY_CACHE_TTL) return hit.data;
+
+  // nwr = nodes + ways + relations. Πολλά POI (ιδίως πρατήρια και τράπεζες)
+  // είναι χαρτογραφημένα ως κτίρια (way), όχι ως σημεία — με "node" χάνονταν.
+  // Το "out center" δίνει κεντροειδές για ways/relations.
+  const query = `[out:json][timeout:20];nwr["amenity"="${amenity}"](around:${radius},${lat},${lon});out center 30;`;
+  const res = await fetchWithTimeout("https://overpass-api.de/api/interpreter", {
     method: "POST",
     body: "data=" + encodeURIComponent(query)
-  });
+  }, 20000);
   if(!res.ok) throw new Error("overpass-failed");
   const json = await res.json();
-  return (json.elements || [])
-    .map(el => ({
-      name: el.tags?.name || (amenity==='fuel' ? "Πρατήριο καυσίμων" : "ATM " + (el.tags?.operator||el.tags?.brand||"")),
-      lat: el.lat, lon: el.lon,
-      dist: haversineKm(lat, lon, el.lat, el.lon)
-    }))
+
+  const data = (json.elements || [])
+    .map(el => {
+      const elat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const elon = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if(elat == null || elon == null) return null;
+      const t = el.tags || {};
+      let name = t.name;
+      if(!name){
+        if(amenity === 'fuel') name = t.brand || t.operator || "Πρατήριο καυσίμων";
+        else name = ("ATM " + (t.operator || t.brand || "")).trim();
+      }
+      return {
+        name,
+        brand: t.brand || t.operator || "",
+        openingHours: t.opening_hours || "",
+        lat: elat, lon: elon,
+        dist: haversineKm(lat, lon, elat, elon)
+      };
+    })
+    .filter(Boolean)
     .sort((a,b)=>a.dist-b.dist)
-    .slice(0, 8);
+    .slice(0, 10);
+
+  NEARBY_CACHE.set(key, {t: Date.now(), data});
+  return data;
 }
 
 async function reverseGeocodeCity(lat, lon){
-  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1`, {
+  const res = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=12&addressdetails=1`, {
     headers: {"Accept-Language": "el"}
-  });
+  }, 12000);
   if(!res.ok) throw new Error("nominatim-failed");
   const json = await res.json();
   const a = json.address || {};
@@ -978,23 +1072,48 @@ async function loadNearby(cat){
 
   if(cat === "fuel" || cat === "atm"){
     el.innerHTML = `<div class="nearby-status">Αναζήτηση κοντινών σημείων…</div>`;
+    const amenity = cat === "fuel" ? "fuel" : "atm";
     try{
-      const results = await fetchOverpass(coords.lat, coords.lon, cat === "fuel" ? "fuel" : "atm");
+      // Σε αραιοκατοικημένες περιοχές τα 6 χλμ συχνά δεν φτάνουν — επεκτείνουμε
+      let results = [];
+      let usedRadius = 0;
+      for(const radius of [6000, 15000, 30000]){
+        usedRadius = radius;
+        results = await fetchOverpass(coords.lat, coords.lon, amenity, radius);
+        if(results.length > 0) break;
+        if(radius !== 30000){
+          el.innerHTML = `<div class="nearby-status">Δεν βρέθηκε κάτι σε ${radius/1000} χλμ — διευρύνω την αναζήτηση…</div>`;
+        }
+      }
       if(results.length === 0){
-        el.innerHTML = `<div class="nearby-status">Δεν βρέθηκαν σημεία σε ακτίνα 6 χλμ. Δοκίμασε από αλλού.</div>`;
+        el.innerHTML = `<div class="nearby-status">Δεν βρέθηκαν σημεία σε ακτίνα 30 χλμ.<br>
+          Ίσως δεν είναι καταχωρημένα στο OpenStreetMap.
+          <div class="navbtns" style="margin-top:10px;justify-content:center">
+            ${navSearchLinks(cat === "fuel" ? "πρατήριο καυσίμων" : "ATM")}
+          </div></div>`;
         return;
       }
-      el.innerHTML = results.map(r => `
+      const header = usedRadius > 6000
+        ? `<div class="nearby-status" style="padding:6px 0 10px">Διευρυμένη αναζήτηση σε ${usedRadius/1000} χλμ</div>`
+        : "";
+      el.innerHTML = header + results.map(r => {
+        const safeName = escapeHtml(r.name);
+        const hours = r.openingHours ? `<div class="naddr">🕒 ${escapeHtml(r.openingHours)}</div>` : "";
+        return `
         <div class="nearby-item">
           <div class="nrow">
-            <h4>${r.name}</h4>
+            <h4>${safeName}</h4>
             <span class="dist">${fmtDist(r.dist)}</span>
           </div>
+          ${hours}
           <div class="navbtns">${navLinks(r.lat, r.lon, r.name)}</div>
-        </div>
-      `).join("");
+        </div>`;
+      }).join("");
     }catch(e){
-      el.innerHTML = `<div class="nearby-status">Η αναζήτηση απέτυχε (πρόβλημα σύνδεσης με OpenStreetMap). Δοκίμασε ξανά.</div>`;
+      const msg = (e && e.name === "AbortError")
+        ? "Η αναζήτηση άργησε πολύ και διακόπηκε. Δοκίμασε ξανά."
+        : "Η αναζήτηση απέτυχε (πρόβλημα σύνδεσης με OpenStreetMap). Δοκίμασε ξανά.";
+      el.innerHTML = `<div class="nearby-status">${msg}</div>`;
     }
     return;
   }
@@ -1003,11 +1122,12 @@ async function loadNearby(cat){
   // το vrisko.gr που δέχεται deep-link ανά πόλη.
   el.innerHTML = `<div class="nearby-status">Αναγνώριση περιοχής…</div>`;
   try{
-    const city = await reverseGeocodeCity(coords.lat, coords.lon);
+    const cityRaw = await reverseGeocodeCity(coords.lat, coords.lon);
+    const city = escapeHtml(cityRaw);
     const label = cat === "pharmacy" ? "εφημερεύον φαρμακείο" : "εφημερεύον νοσοκομείο";
-    const searchQuery = `${label} ${city} σήμερα`;
+    const searchQuery = `${label} ${cityRaw} σήμερα`;
     // Vrisko.gr URL slug για την πόλη (με transliteration Ελληνικά → Λατινικά)
-    const citySlug = greekToLatinSlug(city);
+    const citySlug = greekToLatinSlug(cityRaw);
     const officialLinks = cat === "pharmacy"
       ? `<a class="navbtn" style="background:var(--aegean);color:#fff;border-color:var(--aegean);font-weight:600" target="_blank" rel="noopener" href="https://www.vrisko.gr/efimeries-farmakeion/${citySlug}">📍 vrisko.gr για ${city}</a>
          <a class="navbtn" target="_blank" rel="noopener" href="https://farmakeia.gr/">farmakeia.gr</a>`
@@ -1132,21 +1252,21 @@ function renderEspaResults(list, tags, region){
     return `
     <div class="result">
       <div class="top">
-        <h3>${program.title}${isNew ? '<span class="new-badge">ΝΕΟ</span>' : ""}</h3>
+        <h3>${escapeHtml(program.title)}${isNew ? '<span class="new-badge">ΝΕΟ</span>' : ""}</h3>
         ${statusStamp(program.status)}
       </div>
       ${score>0 ? `<div class="score">ΣΧΕΤΙΚΟΤΗΤΑ ${"●".repeat(Math.min(score,5))}${"○".repeat(Math.max(0,5-score))}</div>` : ""}
-      ${program.beneficiaries ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${program.beneficiaries}</div>` : ""}
+      ${program.beneficiaries ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${escapeHtml(program.beneficiaries)}</div>` : ""}
       <div class="meta">
-        ${program.operational_programme ? `<span>ΠΡΟΓΡ. ${program.operational_programme}</span>` : ""}
-        ${program.region ? `<span>ΠΕΡΙΟΧΗ ${program.region}</span>` : ""}
-        ${program.submission_end ? `<span>ΕΩΣ ${program.submission_end}</span>` : ""}
-        ${program.budget ? `<span>Π/Υ ${program.budget}</span>` : ""}
+        ${program.operational_programme ? `<span>ΠΡΟΓΡ. ${escapeHtml(program.operational_programme)}</span>` : ""}
+        ${program.region ? `<span>ΠΕΡΙΟΧΗ ${escapeHtml(program.region)}</span>` : ""}
+        ${program.submission_end ? `<span>ΕΩΣ ${escapeHtml(program.submission_end)}</span>` : ""}
+        ${program.budget ? `<span>Π/Υ ${escapeHtml(program.budget)}</span>` : ""}
       </div>
-      ${program.note_for_konstantinos ? `<div class="note" style="margin-top:8px">${program.note_for_konstantinos}</div>` : ""}
+      ${program.note_for_konstantinos ? `<div class="note" style="margin-top:8px">${escapeHtml(program.note_for_konstantinos)}</div>` : ""}
       <div class="navbtns">
-        <a class="more" href="${program.url}" data-inapp="1" data-name="${(program.title||'').replace(/"/g,'')}">Δες την πρόσκληση</a>
-        ${icsUrl ? `<a class="navbtn" download="espa-deadline.ics" href="${icsUrl}">📅 Στο ημερολόγιο</a>` : ""}
+        <a class="more" href="${escapeHtml(safeUrl(program.url))}" data-inapp="1" data-name="${escapeHtml(program.title)}">Δες την πρόσκληση</a>
+        ${icsUrl ? `<a class="navbtn" download="espa-deadline.ics" href="${escapeHtml(icsUrl)}">📅 Στο ημερολόγιο</a>` : ""}
       </div>
     </div>
   `;
@@ -1181,7 +1301,7 @@ function runMatch(){
     const el = document.getElementById("espaResults");
     el.innerHTML = `<div class="empty" style="margin-bottom:12px">
       Δεν βρέθηκαν προγράμματα που να ταιριάζουν άμεσα με τα κριτήριά σου
-      (ΚΑΔ: <b>${kad || "—"}</b>, Περιφέρεια: <b>${region || "—"}</b>).
+      (ΚΑΔ: <b>${escapeHtml(kad) || "—"}</b>, Περιφέρεια: <b>${escapeHtml(region) || "—"}</b>).
       Ακολουθούν όλα τα ενεργά προγράμματα:
     </div>` + renderEspaResultsInline(active, [], "");
     return;
@@ -1198,18 +1318,18 @@ function renderEspaResultsInline(list, tags, region){
     return `
     <div class="result">
       <div class="top">
-        <h3>${program.title}${isNew ? '<span class="new-badge">ΝΕΟ</span>' : ""}</h3>
+        <h3>${escapeHtml(program.title)}${isNew ? '<span class="new-badge">ΝΕΟ</span>' : ""}</h3>
         ${statusStamp(program.status)}
       </div>
-      ${program.beneficiaries ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${program.beneficiaries}</div>` : ""}
+      ${program.beneficiaries ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${escapeHtml(program.beneficiaries)}</div>` : ""}
       <div class="meta">
-        ${program.operational_programme ? `<span>ΠΡΟΓΡ. ${program.operational_programme}</span>` : ""}
-        ${program.region ? `<span>ΠΕΡΙΟΧΗ ${program.region}</span>` : ""}
-        ${program.submission_end ? `<span>ΕΩΣ ${program.submission_end}</span>` : ""}
+        ${program.operational_programme ? `<span>ΠΡΟΓΡ. ${escapeHtml(program.operational_programme)}</span>` : ""}
+        ${program.region ? `<span>ΠΕΡΙΟΧΗ ${escapeHtml(program.region)}</span>` : ""}
+        ${program.submission_end ? `<span>ΕΩΣ ${escapeHtml(program.submission_end)}</span>` : ""}
       </div>
       <div class="navbtns">
-        <a class="more" href="${program.url}" data-inapp="1" data-name="${(program.title||'').replace(/"/g,'')}">Δες την πρόσκληση</a>
-        ${icsUrl ? `<a class="navbtn" download="espa-deadline.ics" href="${icsUrl}">📅 Στο ημερολόγιο</a>` : ""}
+        <a class="more" href="${escapeHtml(safeUrl(program.url))}" data-inapp="1" data-name="${escapeHtml(program.title)}">Δες την πρόσκληση</a>
+        ${icsUrl ? `<a class="navbtn" download="espa-deadline.ics" href="${escapeHtml(icsUrl)}">📅 Στο ημερολόγιο</a>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -1233,18 +1353,37 @@ function renderDeadlines(){
     el.innerHTML = `<div class="empty">Καμία γνωστή προθεσμία στα τρέχοντα δεδομένα.</div>`;
     return;
   }
-  el.innerHTML = items.map(p => `
+  el.innerHTML = items.map(p => {
+    const t = String(p.title || "");
+    const shortTitle = t.length > 60 ? t.slice(0,60) + "…" : t;
+    return `
     <div class="reminder-item">
       <div>
-        <div class="rtitle">${p.title.length>60 ? p.title.slice(0,60)+"…" : p.title}</div>
-        <div class="rdate">${p.operational_programme||""}</div>
+        <div class="rtitle">${escapeHtml(shortTitle)}</div>
+        <div class="rdate">${escapeHtml(p.operational_programme || "")}</div>
       </div>
-      <div class="rdate">${p.submission_end}</div>
+      <div class="rdate">${escapeHtml(p.submission_end)}</div>
     </div>
-  `).join("");
+  `;}).join("");
 }
 
 // ===================== LOAD DATA =====================
+
+// Μετατρέπει ISO timestamp σε φιλική ελληνική περιγραφή ηλικίας δεδομένων
+function formatDataAge(iso){
+  const t = Date.parse(iso);
+  if(isNaN(t)) return "άγνωστη";
+  const days = Math.floor((Date.now() - t) / 86400000);
+  const d = new Date(t);
+  const dateStr = String(d.getDate()).padStart(2,"0") + "/" +
+                  String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+  if(days <= 0) return "σήμερα (" + dateStr + ")";
+  if(days === 1) return "χθες (" + dateStr + ")";
+  if(days < 7) return "πριν " + days + " ημέρες (" + dateStr + ")";
+  if(days < 31) return "πριν " + Math.floor(days/7) + " εβδομάδες (" + dateStr + ")";
+  return dateStr + " — ίσως χρειάζεται ανανέωση";
+}
+
 let NEW_PROGRAM_IDS = new Set();
 
 async function loadPrograms(){
@@ -1253,18 +1392,42 @@ async function loadPrograms(){
     const json = await res.json();
     PROGRAMS = json.programs || [];
     DATA_META = {generated_at: json.generated_at, note: json.note};
-    const staleEl = document.getElementById("espaStale");
-    if(json.note){
-      staleEl.textContent = json.note;
-    }
 
-    // Diff against previously-seen program IDs to flag what's new since last visit
+    // Ενημέρωση της γραμμής κατάστασης δεδομένων (πόσο φρέσκα είναι)
+    const staleEl = document.getElementById("espaStale");
+    const parts = [];
+    if(json.generated_at){
+      parts.push("Τελευταία ενημέρωση δεδομένων: " + formatDataAge(json.generated_at));
+    }
+    if(PROGRAMS.length){
+      parts.push(PROGRAMS.length + " προγράμματα στη βάση");
+    }
+    if(json.note) parts.push(json.note);
+    staleEl.textContent = parts.join(" · ");
+
+    // Badge "ΝΕΟ": δύο πηγές, ό,τι ισχύει
+    //  α) προγράμματα που δεν είχε δει ΑΥΤΗ η συσκευή από την τελευταία επίσκεψη
+    //  β) προγράμματα που μπήκαν στη βάση τις τελευταίες 7 μέρες (first_seen)
+    //     — χρήσιμο και στην πρώτη επίσκεψη, όπου το (α) δεν δίνει τίποτα
     let seenIds = [];
     try{ seenIds = JSON.parse(safeStorage.get("kratosnet-seen-ids") || "[]"); }catch(e){}
     const seenSet = new Set(seenIds);
     const currentIds = PROGRAMS.map(p => p.id || p.title);
-    if(seenIds.length > 0){ // don't flag everything as NEW on very first visit
+
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const recentlyAdded = PROGRAMS
+      .filter(p => {
+        const t = Date.parse(p.first_seen || "");
+        return !isNaN(t) && t >= weekAgo;
+      })
+      .map(p => p.id || p.title);
+
+    if(seenIds.length > 0){
       NEW_PROGRAM_IDS = new Set(currentIds.filter(id => !seenSet.has(id)));
+      recentlyAdded.forEach(id => NEW_PROGRAM_IDS.add(id));
+    } else {
+      // Πρώτη επίσκεψη: μη σημαδέψεις τα πάντα ως ΝΕΟ — μόνο τα όντως πρόσφατα
+      NEW_PROGRAM_IDS = new Set(recentlyAdded);
     }
     safeStorage.set("kratosnet-seen-ids", JSON.stringify(currentIds));
   }catch(e){
@@ -1335,7 +1498,7 @@ function parseDiavgeiaJson(json){
     subject: d.subject || d.decisionSubject || d.title || "(χωρίς τίτλο)",
     date: (d.issueDate || d.submissionTimestamp || d.date || "").toString().slice(0,10),
     type: (d.decisionType && (d.decisionType.label || d.decisionType)) || d.decisionTypeLabel || "",
-    url: d.url || (d.ada ? `https://diavgeia.gov.gr/doc/${d.ada}` : "#"),
+    url: d.url || (d.ada ? `https://diavgeia.gov.gr/doc/${encodeURIComponent(d.ada)}` : "#"),
   })).filter(d => d.subject);
 }
 
@@ -1344,16 +1507,16 @@ async function loadDimos(){
   const muni = getMuni();
   el.innerHTML = `<div class="nearby-status">Φόρτωση από Διαύγεια…</div>`;
   try{
-    const res = await fetch(`https://diavgeia.gov.gr/luminapi/api/search/export?q=organizationUid:%22${muni.uid}%22&sort=recent&wt=json&size=10`);
+    const res = await fetch(`https://diavgeia.gov.gr/luminapi/api/search/export?q=organizationUid:%22${encodeURIComponent(muni.uid)}%22&sort=recent&wt=json&size=10`);
     if(!res.ok) throw new Error("bad-response");
     const json = await res.json();
     const items = parseDiavgeiaJson(json);
     if(items.length === 0) throw new Error("empty-or-unrecognized-shape");
     el.innerHTML = items.map(d => `
       <div class="dimos-item">
-        <h4>${d.subject}</h4>
-        <div class="dmeta">${d.date ? `<span>${d.date}</span>` : ""}${d.type ? `<span>${d.type}</span>` : ""}${d.ada ? `<span>ΑΔΑ ${d.ada}</span>` : ""}</div>
-        <a class="doclink" href="${d.url}" data-inapp="1" data-name="${(d.subject||'').replace(/"/g,'')}">Δες το έγγραφο →</a>
+        <h4>${escapeHtml(d.subject)}</h4>
+        <div class="dmeta">${d.date ? `<span>${escapeHtml(d.date)}</span>` : ""}${d.type ? `<span>${escapeHtml(d.type)}</span>` : ""}${d.ada ? `<span>ΑΔΑ ${escapeHtml(d.ada)}</span>` : ""}</div>
+        <a class="doclink" href="${escapeHtml(safeUrl(d.url))}" data-inapp="1" data-name="${escapeHtml(d.subject)}">Δες το έγγραφο →</a>
       </div>
     `).join("");
   }catch(e){
@@ -1367,6 +1530,10 @@ applyMuniToUI();
 // Config: συμπλήρωσε μετά τη δημιουργία Supabase project (βλ. README).
 // Το ANON key είναι σχεδιασμένο να είναι δημόσιο (τα δεδομένα προστατεύονται
 // από Row Level Security στη βάση) — ΠΟΤΕ όμως το service_role key εδώ.
+// Έκδοση SDK καρφωμένη + προαιρετικό SRI hash (δες οδηγία παρακάτω)
+const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
+const SUPABASE_SDK_SRI = ""; // π.χ. "sha384-..." — κενό = χωρίς έλεγχο ακεραιότητας
+
 const SUPABASE_CONFIG = {
   url: "https://rjppadnxusyhavdnbimg.supabase.co",
   anonKey: "sb_publishable_oiqkPftbgKK-8xB6sFygYA_cl-s7e47",
@@ -1384,7 +1551,19 @@ async function loadSupabase(){
   // Lazy-load του SDK από CDN μόνο όταν χρειάζεται — δεν επιβαρύνει την αρχική φόρτωση
   await new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+    // Καρφωμένη έκδοση (όχι @2) ώστε να μην αλλάζει ο κώδικας σιωπηλά.
+    //
+    // SRI: αν συμπληρωθεί το SUPABASE_SDK_SRI, ο browser αρνείται να εκτελέσει
+    // το script αν το CDN σερβίρει οτιδήποτε διαφορετικό. Για να το βρεις:
+    //   curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js \
+    //     | openssl dgst -sha384 -binary | openssl base64 -A
+    // και βάλε το αποτέλεσμα ως "sha384-<hash>".
+    s.src = SUPABASE_SDK_URL;
+    if(SUPABASE_SDK_SRI){
+      s.integrity = SUPABASE_SDK_SRI;
+    }
+    s.crossOrigin = "anonymous";
+    s.referrerPolicy = "no-referrer";
     s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
   });
