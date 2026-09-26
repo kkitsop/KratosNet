@@ -31,24 +31,23 @@ self.addEventListener("fetch", (event) => {
   const isData = url.pathname.endsWith("/data/programs.json");
 
   if (isData) {
-    // stale-while-revalidate: show cached data instantly, refresh in background
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
-        const network = fetch(event.request)
-          .then((res) => {
-            if (res.ok) cache.put(event.request, res.clone());
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
-    );
-    return;
-  }
-
-  // app shell: cache-first
+      // app shell: cache-first with normalized request and offline fallback
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request).then((cached) => {
+      // 1. Return immediately if found in cache
+      if (cached) return cached;
+      
+      // 2. Fetch from network, but add a catch for network errors
+      return fetch(event.request).catch(() => {
+        // 3. Fallback: If network fails and it's a navigation request (like opening the app), 
+        // try to return the cached index.html
+        if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+          return caches.match('./index.html').then(fallback => {
+              // If index.html isn't specifically matched, try the root '/'
+              return fallback || caches.match('./');
+          });
+        }
+        // If it's not navigation and no cache, let it fail gracefully rather than crashing the SW
+      });
+    })
   );
-});
