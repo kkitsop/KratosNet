@@ -1,11 +1,11 @@
 // kratosNet service worker — app-shell caching + stale-while-revalidate for data
 const CACHE_NAME = "kratosnet-v1";
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png",
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
