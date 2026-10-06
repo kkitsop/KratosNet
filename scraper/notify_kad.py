@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-kratosNet — Nightly ΚΑΔ notifier
+Κράτος.ΝΕΤ — Nightly ΚΑΔ notifier
 ==================================
-Τρέχει στο ΙΔΙΟ GitHub Actions workflow με τον ESPA scraper (μηδέν επιπλέον
-υποδομή/κόστος), αμέσως μετά την ανανέωση του data/programs.json:
+Τρέχει από το workflow notify-kad.yml (νυχτερινά). Η ανανέωση του
+data/programs.json γίνεται ξεχωριστά, με το bookmarklet → Cloudflare Worker →
+commit· το espa.gr μπλοκάρει τα GitHub Actions, άρα εδώ ΔΕΝ γίνεται scraping.
 
   1. Διαβάζει τα τρέχοντα προγράμματα από data/programs.json
   2. Τραβάει από τη Supabase όλους τους χρήστες με notify_email = true
@@ -11,6 +12,10 @@ kratosNet — Nightly ΚΑΔ notifier
      και (β) ΔΕΝ του έχουν ήδη σταλεί (πίνακας notified)
   4. Στέλνει ένα συγκεντρωτικό email ανά χρήστη μέσω Brevo (free tier: 300/ημέρα)
   5. Καταγράφει τα σταλμένα στο notified ώστε να μην ξανασταλούν
+
+ΠΡΟΣΟΧΗ — κοινό Supabase project: το project μοιράζεται με την ΚΑΤΑΣΤΡΟΦΗ, που
+έχει δικό της πίνακα "profiles" (id, full_name, email, created_at). Το Κράτος.ΝΕΤ
+χρησιμοποιεί τον ξεχωριστό πίνακα "kratos_profiles". Μην το αλλάξεις πίσω.
 
 Απαιτούμενα secrets στο GitHub repo (Settings → Secrets → Actions):
   SUPABASE_URL          — π.χ. https://xxxx.supabase.co
@@ -28,12 +33,14 @@ kratosNet — Nightly ΚΑΔ notifier
 """
 from __future__ import annotations
 
+import html
 import json
 import os
 import sys
 import urllib.request
 import urllib.error
 from pathlib import Path
+from urllib.parse import urlparse
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -42,6 +49,9 @@ PROGRAMS_PATH = Path(os.environ.get("PROGRAMS_PATH", "data/programs.json"))
 SENDER_EMAIL = os.environ.get("NOTIFY_SENDER_EMAIL", "")  # verified sender στο Brevo
 SENDER_NAME = "kratosNet"
 APP_URL = os.environ.get("APP_URL", "https://kratosnet.pages.dev")
+
+# Πίνακας προφίλ του Κράτος.ΝΕΤ (ΟΧΙ "profiles" — ανήκει στην ΚΑΤΑΣΤΡΟΦΗ)
+PROFILES_TABLE = "kratos_profiles"
 
 # Ίδιο keyword map με frontend/scraper — κρατάμε τα τρία σε συμφωνία.
 KAD_KEYWORDS = {
@@ -114,12 +124,12 @@ def program_matches(program: dict, user_tags: set[str], user_region: str) -> boo
     return program.get("status") in ("Ενεργό", "Αναμένεται")
 
 
-def send_email(to_email: str, subject: str, html: str) -> bool:
+def send_email(to_email: str, subject: str, html_body: str) -> bool:
     body = {
         "sender": {"name": SENDER_NAME, "email": SENDER_EMAIL},
         "to": [{"email": to_email}],
         "subject": subject,
-        "htmlContent": html,
+        "htmlContent": html_body,
     }
     try:
         http_json(
@@ -134,27 +144,43 @@ def send_email(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
+def esc(value) -> str:
+    """HTML-escape για κάθε τιμή που προέρχεται από δεδομένα (programs.json)."""
+    return html.escape("" if value is None else str(value), quote=True)
+
+
+def safe_url(value) -> str:
+    """Επιτρέπει μόνο http/https. Οτιδήποτε άλλο (javascript:, data:) -> '#'."""
+    s = ("" if value is None else str(value)).strip()
+    try:
+        scheme = urlparse(s).scheme.lower()
+    except ValueError:
+        return "#"
+    return html.escape(s, quote=True) if scheme in ("http", "https") else "#"
+
+
 def render_email(programs: list[dict]) -> str:
     rows = "".join(
         f"""<tr>
           <td style="padding:10px 0;border-bottom:1px solid #E4E1D5">
-            <div style="font-weight:600;color:#1B2430">{p.get('title','')}</div>
+            <div style="font-weight:600;color:#1B2430">{esc(p.get('title'))}</div>
             <div style="font-size:12px;color:#5B6472;margin-top:2px">
-              {p.get('operational_programme','')} · {p.get('region','')}
-              {('· έως ' + p['submission_end']) if p.get('submission_end') else ''}
+              {esc(p.get('operational_programme'))} · {esc(p.get('region'))}
+              {('· έως ' + esc(p['submission_end'])) if p.get('submission_end') else ''}
             </div>
-            <a href="{p.get('url','')}" style="font-size:13px;color:#133A5E;font-weight:600">Δες την πρόσκληση →</a>
+            <a href="{safe_url(p.get('url'))}" style="font-size:13px;color:#133A5E;font-weight:600">Δες την πρόσκληση →</a>
           </td>
         </tr>"""
         for p in programs
     )
+    app_url = esc(APP_URL)
     return f"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#FBFAF6;padding:24px;border:1px solid #D9D5C8;border-radius:8px">
       <h2 style="color:#133A5E;margin:0 0 4px">kratosNet</h2>
       <p style="color:#5B6472;font-size:13px;margin:0 0 16px">Νέα προγράμματα που ταιριάζουν στον ΚΑΔ σου</p>
       <table style="width:100%;border-collapse:collapse">{rows}</table>
       <p style="font-size:11px;color:#8A8F98;margin-top:20px">
         Λαμβάνεις αυτό το email επειδή ενεργοποίησες ειδοποιήσεις στο kratosNet.
-        Απενεργοποίηση: άνοιξε το <a href="{APP_URL}">{APP_URL}</a> → Λογαριασμός → Ειδοποιήσεις.
+        Απενεργοποίηση: άνοιξε το <a href="{app_url}">{app_url}</a> → Λογαριασμός → Ειδοποιήσεις.
         Η καταλληλότητα είναι ενδεικτική — πάντα έλεγχος στο PDF της πρόσκλησης.
       </p>
     </div>"""
@@ -181,7 +207,7 @@ def main():
 
     # Χρήστες με ενεργοποιημένες ειδοποιήσεις + συμπληρωμένο ΚΑΔ
     users = http_json(
-        f"{SUPABASE_URL}/rest/v1/profiles?notify_email=eq.true&kad=neq.&select=id,email,kad,region",
+        f"{SUPABASE_URL}/rest/v1/{PROFILES_TABLE}?notify_email=eq.true&kad=neq.&select=id,email,kad,region",
         headers=sb_headers(),
     ) or []
     print(f"[ok] {len(users)} χρήστες με ενεργές ειδοποιήσεις", file=sys.stderr)
